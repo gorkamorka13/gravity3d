@@ -77,9 +77,29 @@ export class SimulationRenderer {
     this.trajectory2Marker.visible = false;
     this.scene.add(this.trajectory2Marker);
 
-    // Helpers
-    this.axesHelper = new THREE.AxesHelper(60);
-    this.scene.add(this.axesHelper);
+    // Repères volumétriques (pour régler l'épaisseur)
+    const axisRadius = 0.15;
+    const axisLength = 60;
+    
+    // Axe X (Rouge - Profondeur)
+    const geomX = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    this.axisX = new THREE.Mesh(geomX, new THREE.MeshBasicMaterial({ color: 0xff4444 }));
+    this.axisX.rotation.z = -Math.PI / 2;
+    this.axisX.position.x = axisLength / 2;
+    this.scene.add(this.axisX);
+
+    // Axe Z (Vert - Hauteur / Three.js Y)
+    const geomZ = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    this.axisZ = new THREE.Mesh(geomZ, new THREE.MeshBasicMaterial({ color: 0x44ff44 }));
+    this.axisZ.position.y = axisLength / 2;
+    this.scene.add(this.axisZ);
+
+    // Axe Y (Bleu - Latéral / Three.js Z)
+    const geomY = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    this.axisY = new THREE.Mesh(geomY, new THREE.MeshBasicMaterial({ color: 0x4444ff }));
+    this.axisY.rotation.x = Math.PI / 2;
+    this.axisY.position.z = axisLength / 2;
+    this.scene.add(this.axisY);
 
     // Repère local aligné sur la trajectoire
     this.localFrame = new THREE.Group();
@@ -97,20 +117,20 @@ export class SimulationRenderer {
     this.localFrame.add(this.labelXPrime);
 
     // Étiquettes d'axes globaux (Z est la hauteur pour l'utilisateur)
-    const labelX = this.makeLabelSprite("X", "#ff4444");
-    labelX.position.set(62, 0, 0);
-    labelX.scale.set(4, 2, 1); 
-    this.scene.add(labelX);
+    this.labelX = this.makeLabelSprite("X", "#ff4444");
+    this.labelX.position.set(62, 0, 0);
+    this.labelX.scale.set(4, 2, 1); 
+    this.scene.add(this.labelX);
 
-    const labelZ = this.makeLabelSprite("Z", "#44ff44"); // Vertical
-    labelZ.position.set(0, 62, 0);
-    labelZ.scale.set(4, 2, 1); 
-    this.scene.add(labelZ);
+    this.labelZ = this.makeLabelSprite("Z", "#44ff44"); // Vertical
+    this.labelZ.position.set(0, 62, 0);
+    this.labelZ.scale.set(4, 2, 1); 
+    this.scene.add(this.labelZ);
 
-    const labelY = this.makeLabelSprite("Y", "#4444ff"); // Profondeur
-    labelY.position.set(0, 0, 62);
-    labelY.scale.set(4, 2, 1); 
-    this.scene.add(labelY);
+    this.labelY = this.makeLabelSprite("Y", "#4444ff"); // Profondeur
+    this.labelY.position.set(0, 0, 62);
+    this.labelY.scale.set(4, 2, 1); 
+    this.scene.add(this.labelY);
 
     this.gridHelper = new THREE.GridHelper(100, 40, 0xbbbbbb, 0xdddddd);
     this.gridHelper.material.opacity = 0.4;
@@ -172,10 +192,10 @@ export class SimulationRenderer {
   }
 
   updateTheme(isDark) {
-    this.scene.background = isDark ? new THREE.Color(0x121212) : new THREE.Color(0xf4f6f8);
-    this.projectileMesh.material.color.set(isDark ? 0x4facfe : 0x0000ff);
-    this.mainTrajectoryLine.material.color.set(isDark ? 0x4facfe : 0x0000ff);
-    this.idealTrajectoryLine.material.color.set(isDark ? 0xcccccc : 0x888888);
+    this.scene.background = isDark ? new THREE.Color(0x121212) : new THREE.Color(0xffffff); // Blanc pur plus net
+    this.projectileMesh.material.color.set(isDark ? 0x4facfe : 0x2563eb); // Bleu plus intense en clair
+    this.mainTrajectoryLine.material.color.set(isDark ? 0x4facfe : 0x2563eb);
+    this.idealTrajectoryLine.material.color.set(isDark ? 0xcccccc : 0x64748b); // Gris ardoise plus visible
     
     if (this.gridHelper) {
       this.scene.remove(this.gridHelper);
@@ -183,12 +203,36 @@ export class SimulationRenderer {
       if (this.gridHelper.material) this.gridHelper.material.dispose();
     }
     
-    const gridColorCenter = isDark ? 0x666666 : 0x888888;
-    const gridColorGrid = isDark ? 0x333333 : 0xcccccc;
+    const gridColorCenter = isDark ? 0x666666 : 0x64748b; // Ardoise
+    const gridColorGrid = isDark ? 0x333333 : 0xcbd5e1;   // Gris clair plus marqué
     this.gridHelper = new THREE.GridHelper(100, 40, gridColorCenter, gridColorGrid);
-    this.gridHelper.material.opacity = isDark ? 0.6 : 0.6;
+    this.gridHelper.material.opacity = isDark ? 0.6 : 0.8; // Plus opaque en clair
     this.gridHelper.material.transparent = true;
     this.scene.add(this.gridHelper);
+
+    // Mise à jour des couleurs des labels d'axes pour le contraste
+    const labels = [
+      { key: 'labelX', text: 'X', pos: [62, 0, 0], color: isDark ? "#ff4444" : "#dc2626" },
+      { key: 'labelZ', text: 'Z', pos: [0, 62, 0], color: isDark ? "#44ff44" : "#059669" },
+      { key: 'labelY', text: 'Y', pos: [0, 0, 62], color: isDark ? "#4444ff" : "#2563eb" }
+    ];
+
+    labels.forEach(l => {
+      if (this[l.key]) {
+        this.scene.remove(this[l.key]);
+        if (this[l.key].material.map) this[l.key].material.map.dispose();
+        this[l.key].material.dispose();
+      }
+      this[l.key] = this.makeLabelSprite(l.text, l.color);
+      this[l.key].position.set(...l.pos);
+      this[l.key].scale.set(4, 2, 1);
+      this.scene.add(this[l.key]);
+    });
+
+    // Mise à jour de la couleur des axes volumétriques
+    if (this.axisX) this.axisX.material.color.set(isDark ? 0xff4444 : 0xdc2626);
+    if (this.axisZ) this.axisZ.material.color.set(isDark ? 0x44ff44 : 0x059669);
+    if (this.axisY) this.axisY.material.color.set(isDark ? 0x4444ff : 0x2563eb);
   }
 
   makeLabelSprite(text, color = "#ffffff") {

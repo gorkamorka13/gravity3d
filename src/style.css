@@ -2,17 +2,17 @@
  1. VARIABLES & THEME
  ========================================= */
 :root {
-  --bg-color: #f4f6f8;
-  --panel-bg: rgba(255, 255, 255, 0.85);
-  --text-color: #2c3e50;
-  --text-secondary: #5c6c7c;
-  --input-border: rgba(0,0,0,0.1);
-  --input-focus: #3498db;
-  --shadow-color: rgba(0, 0, 0, 0.08);
-  --section-border: rgba(0,0,0,0.06);
-  --burger-color: #2c3e50;
+  --bg-color: #f8fafc;
+  --panel-bg: rgba(255, 255, 255, 0.9);
+  --text-color: #0f172a;
+  --text-secondary: #475569;
+  --input-border: rgba(0,0,0,0.15);
+  --input-focus: #2563eb;
+  --shadow-color: rgba(0, 0, 0, 0.12);
+  --section-border: rgba(0,0,0,0.08);
+  --burger-color: #0f172a;
   --canvas-bg: #ffffff;
-  --result-bg: rgba(255, 255, 255, 0.6);
+  --result-bg: rgba(241, 245, 249, 0.8);
   
   --reset-color: #e74c3c;
   --pause-color: #3498db;

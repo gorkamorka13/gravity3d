@@ -79,45 +79,56 @@ function updateVectors(traj, frameIndex) {
   renderer.updateLabel("vLabel", `v=${vel.v.toFixed(2)} m/s`, vTip.clone().add(new THREE.Vector3(0, 0.8, 0)), "#4facfe");
 
   if (state.showVelocityComponents) {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const colorX = isDark ? "#ff4444" : "#dc2626";
+    const colorZ = isDark ? "#44ff44" : "#059669";
+    const colorY = isDark ? "#4444ff" : "#2563eb";
+
     if (state.coordSystem === "local") {
       const v_horiz = Math.sqrt(vel.vx**2 + vel.vy**2);
       renderer.vxVector.setDirection(new THREE.Vector3(1,0,0));
+      renderer.vxVector.setColor(new THREE.Color(isDark ? 0xff4444 : 0xdc2626)); // Rouge/Orange pour le plan
       renderer.vxVector.position.copy(origin);
       renderer.vxVector.setLength(v_horiz * state.velocityVectorScale, 0.2, 0.1);
       renderer.vxVector.visible = v_horiz > 0.1;
       const vxTip = origin.clone().add(new THREE.Vector3(v_horiz * state.velocityVectorScale, 0, 0));
-      renderer.updateLabel("vxLabel", `vx'=${v_horiz.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 0.5, 0)), "#ffaa00");
+      renderer.updateLabel("vxLabel", `vx'=${v_horiz.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 1.2, 0)), isDark ? "#ffaa00" : "#d97706");
 
       renderer.vzVector.setDirection(new THREE.Vector3(0,1,0)); // Vertical
+      renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669)); // Vert
       renderer.vzVector.position.copy(vxTip);
       renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vzVector.visible = Math.abs(vel.vz) > 0.1;
       const vzTip = vxTip.clone().add(new THREE.Vector3(0, vel.vz * state.velocityVectorScale, 0));
-      renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(0, 0, 0.5)), "#cccccc");
+      renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(0, 0, 1.5)), colorZ);
       
       renderer.vyVector.visible = false;
       if (renderer.velocityLabels["vyLabel"]) renderer.velocityLabels["vyLabel"].visible = false;
     } else {
+      // Repère Global
       renderer.vxVector.setDirection(new THREE.Vector3(1,0,0));
+      renderer.vxVector.setColor(new THREE.Color(isDark ? 0xff4444 : 0xdc2626));
       renderer.vxVector.position.copy(origin);
       renderer.vxVector.setLength(Math.abs(vel.vx)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vxVector.visible = Math.abs(vel.vx) > 0.1;
       const vxTip = origin.clone().add(new THREE.Vector3(vel.vx * state.velocityVectorScale, 0, 0));
-      renderer.updateLabel("vxLabel", `vx=${vel.vx.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 0.5, 0)), "#cccccc");
+      renderer.updateLabel("vxLabel", `vx=${vel.vx.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 1.2, 0)), colorX);
 
       renderer.vyVector.setDirection(new THREE.Vector3(0,0,1)); // Axe Y latéral (Three Z)
+      renderer.vyVector.setColor(new THREE.Color(isDark ? 0x4444ff : 0x2563eb));
       renderer.vyVector.position.copy(vxTip);
       renderer.vyVector.setLength(Math.abs(vel.vy)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vyVector.visible = Math.abs(vel.vy) > 0.1;
       const vyTip = vxTip.clone().add(new THREE.Vector3(0, 0, vel.vy * state.velocityVectorScale));
-      renderer.updateLabel("vyLabel", `vy=${vel.vy.toFixed(2)} m/s`, vyTip.clone().add(new THREE.Vector3(1, 0, 0)), "#cccccc");
+      renderer.updateLabel("vyLabel", `vy=${vel.vy.toFixed(2)} m/s`, vyTip.clone().add(new THREE.Vector3(2, 0, 0)), colorY);
       
       renderer.vzVector.setDirection(new THREE.Vector3(0,1,0)); // Axe Z vertical (Three Y)
+      renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669));
       renderer.vzVector.position.copy(vyTip);
       renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vzVector.visible = Math.abs(vel.vz) > 0.1;
       const vzTip = vyTip.clone().add(new THREE.Vector3(0, vel.vz * state.velocityVectorScale, 0));
-      renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(0, 0, 0.5)), "#cccccc");
+      renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(0, 0, 1.5)), colorZ);
     }
   } else {
     renderer.vxVector.visible = renderer.vyVector.visible = renderer.vzVector.visible = false;
@@ -321,9 +332,6 @@ function toggleAnimation(atEnd = false) {
   } else {
     elements.pauseButton.textContent = "Go";
     elements.pauseButton.classList.replace("btn-pause", "btn-go");
-    if (!atEnd) {
-      document.getElementById("panel").classList.add("open");
-    }
   }
 }
 
