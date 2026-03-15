@@ -395,7 +395,7 @@ export class SimulationRenderer {
 
     this.v0Vector.setDirection(direction);
     this.v0Vector.position.copy(startPoint);
-    this.v0Vector.setLength(length, 0.5, 0.2);
+    this.v0Vector.setLength(length, 1.0, 0.4);
     this.v0Vector.line.material.color.set(color);
     this.v0Vector.cone.material.color.set(color);
     this.v0Vector.visible = true;

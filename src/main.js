@@ -71,7 +71,7 @@ function updateVectors(traj, frameIndex) {
   const length = vel.v * state.velocityVectorScale;
   renderer.velocityVector.setDirection(vMag > 1e-6 ? dir : new THREE.Vector3(1,0,0));
   renderer.velocityVector.position.copy(origin);
-  renderer.velocityVector.setLength(length, 0.4, 0.2); // Flèche un peu plus grosse
+  renderer.velocityVector.setLength(length, 0.8, 0.4); // Flèche bien plus grosse pour la visibilité
   renderer.velocityVector.visible = vel.v > 0.05;
 
   const vTip = origin.clone().add(dir.clone().multiplyScalar(length));
@@ -91,7 +91,7 @@ function updateVectors(traj, frameIndex) {
       renderer.vxVector.setDirection(dirX);
       renderer.vxVector.setColor(new THREE.Color(isDark ? 0xff4444 : 0xdc2626));
       renderer.vxVector.position.copy(origin);
-      renderer.vxVector.setLength(v_horiz * state.velocityVectorScale, 0.2, 0.1);
+      renderer.vxVector.setLength(v_horiz * state.velocityVectorScale, 0.5, 0.25);
       renderer.vxVector.visible = v_horiz > 0.1;
       
       const vxTip = origin.clone().add(dirX.clone().multiplyScalar(v_horiz * state.velocityVectorScale));
@@ -100,7 +100,7 @@ function updateVectors(traj, frameIndex) {
       renderer.vzVector.setDirection(new THREE.Vector3(0,1,0));
       renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669));
       renderer.vzVector.position.copy(vxTip);
-      renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.2, 0.1);
+      renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.5, 0.25);
       renderer.vzVector.visible = Math.abs(vel.vz) > 0.1;
       const vzTip = vxTip.clone().add(new THREE.Vector3(0, vel.vz * state.velocityVectorScale, 0));
       renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(3.5, 0, 3.5)), colorZ);
@@ -112,7 +112,7 @@ function updateVectors(traj, frameIndex) {
       renderer.vxVector.setDirection(new THREE.Vector3(1,0,0));
       renderer.vxVector.setColor(new THREE.Color(isDark ? 0xff4444 : 0xdc2626));
       renderer.vxVector.position.copy(origin);
-      renderer.vxVector.setLength(Math.abs(vel.vx)*state.velocityVectorScale, 0.2, 0.1);
+      renderer.vxVector.setLength(Math.abs(vel.vx)*state.velocityVectorScale, 0.5, 0.25);
       renderer.vxVector.visible = Math.abs(vel.vx) > 0.1;
       const vxTip = origin.clone().add(new THREE.Vector3(vel.vx * state.velocityVectorScale, 0, 0));
       renderer.updateLabel("vxLabel", `vx=${vel.vx.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 2.5, -3.5)), colorX);
@@ -120,7 +120,7 @@ function updateVectors(traj, frameIndex) {
       renderer.vyVector.setDirection(new THREE.Vector3(0,0,1)); // Axe Y latéral (Three Z)
       renderer.vyVector.setColor(new THREE.Color(isDark ? 0x4444ff : 0x2563eb));
       renderer.vyVector.position.copy(vxTip);
-      renderer.vyVector.setLength(Math.abs(vel.vy)*state.velocityVectorScale, 0.2, 0.1);
+      renderer.vyVector.setLength(Math.abs(vel.vy)*state.velocityVectorScale, 0.5, 0.25);
       renderer.vyVector.visible = Math.abs(vel.vy) > 0.1;
       const vyTip = vxTip.clone().add(new THREE.Vector3(0, 0, vel.vy * state.velocityVectorScale));
       renderer.updateLabel("vyLabel", `vy=${vel.vy.toFixed(2)} m/s`, vyTip.clone().add(new THREE.Vector3(4.0, 0, 0)), colorY);
@@ -128,7 +128,7 @@ function updateVectors(traj, frameIndex) {
       renderer.vzVector.setDirection(new THREE.Vector3(0,1,0)); // Axe Z vertical (Three Y)
       renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669));
       renderer.vzVector.position.copy(vyTip);
-      renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.2, 0.1);
+      renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.5, 0.25);
       renderer.vzVector.visible = Math.abs(vel.vz) > 0.1;
       const vzTip = vyTip.clone().add(new THREE.Vector3(0, vel.vz * state.velocityVectorScale, 0));
       renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(3.5, 0, 3.5)), colorZ);
