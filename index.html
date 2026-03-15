@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Simulateur de Mouvement Parabolique</title>
+    <link rel="stylesheet" href="/src/style.css">
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+    <style>
+      body { opacity: 0; transition: opacity 0.3s ease; }
+      body.initialized { opacity: 1; }
+    </style>
+  </head>
+
+  <body>
+    <!-- Bouton Burger -->
+    <button id="openBtn">
+      <span class="burger-line"></span>
+      <span class="burger-line"></span>
+      <span class="burger-line"></span>
+    </button>
+
+    <div id="container">
+      <div id="simulation-area">
+        <h4 id="graph-title">Trajectoire du projectile</h4>
+        <canvas id="simCanvas"></canvas>
+      </div>
+
+      <!-- PANNEAU LATÉRAL -->
+      <div id="panel">
+        <div id="panelHeader">
+          <button id="themeToggleBtn" class="icon-btn" title="Changer de thème" style="margin-right: 15px">☀️</button>
+          <button id="closePanelHeaderBtn" class="icon-btn" style="font-size: 24px" title="Fermer">✕</button>
+        </div>
+
+        <div id="panelContent">
+          <!-- SECTION 1: MODES & ACTIONS -->
+          <div class="section collapsible">
+            <div class="section-header">⚙️ Contrôles Principaux</div>
+            <div class="section-content">
+              <div class="mode-selector" style="margin-bottom: 15px; display: flex; gap: 15px; color: var(--text-color)">
+                <label style="margin: 0; cursor: pointer;"><input type="radio" name="mode" value="simulation" checked /> Simulation</label>
+                <label style="margin: 0; cursor: pointer;"><input type="radio" name="mode" value="target" /> Cible</label>
+              </div>
+
+              <div class="action-row">
+                <button id="pauseButton" class="btn btn-go">Go</button>
+                <button id="resetButton" class="btn btn-reset">Reset</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 2: LANCEMENT -->
+          <div class="section collapsible">
+            <div class="section-header">🚀 Paramètres de Tir</div>
+            <div class="section-content">
+              <!-- Mode Simulation -->
+              <div id="simulation-controls">
+                <div class="control-group">
+                  <label>Vitesse (v₀): <input type="number" id="v0Input" /> m/s</label>
+                  <input type="range" id="v0Slider" min="1" max="50" step="0.1" value="20" />
+                </div>
+                <div class="control-group">
+                  <label>Angle (α): <input type="number" id="alphaInput" /> °</label>
+                  <input type="range" id="alphaSlider" min="0" max="90" step="1" value="45" />
+                </div>
+                <div class="control-group">
+                  <label>Angle Z (β): <input type="number" id="outOfPlaneInput" step="1" value="0" /> °</label>
+                  <input type="range" id="outOfPlaneSlider" min="-90" max="90" step="1" value="0" />
+                </div>
+              </div>
+
+              <!-- Mode Cible -->
+              <div id="target-controls" class="hidden">
+                <div class="control-group">
+                  <label>Vitesse (v₀): <input type="number" id="v0TargetInput" /> m/s</label>
+                  <input type="range" id="v0TargetSlider" min="1" max="50" step="0.1" value="20" />
+                </div>
+                <div class="control-group">
+                  <label>Cible X (m): <input type="number" id="targetXInput" step="0.5" value="25" /></label>
+                  <input type="range" id="targetXSlider" min="1" max="100" step="0.5" value="25" />
+                </div>
+                <div class="control-group">
+                  <label>Cible Y (m): <input type="number" id="targetYInput" step="0.5" value="10" /></label>
+                  <input type="range" id="targetYSlider" min="0" max="50" step="0.5" value="10" />
+                </div>
+                <div class="control-group">
+                  <label>Cible Z (m): <input type="number" id="targetZInput" step="0.5" value="0" /></label>
+                  <input type="range" id="targetZSlider" min="-20" max="20" step="0.5" value="0" />
+                </div>
+                <div id="solutions-display"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 3: ENVIRONNEMENT -->
+          <div class="section collapsible collapsed">
+            <div class="section-header">🌍 Environnement & Physique</div>
+            <div class="section-content">
+              <div id="common-controls">
+                <div class="control-group">
+                  <label>Hauteur départ (h): <input type="number" id="hInput" /></label>
+                  <input type="range" id="hSlider" min="0" max="50" step="0.5" value="0" />
+                </div>
+                <div id="h-arrivee-control" class="control-group">
+                  <label>Hauteur arrivée: <input type="number" id="hArriveeInput" /></label>
+                  <input type="range" id="hArriveeSlider" min="0" max="50" step="0.5" value="0" />
+                </div>
+                <div class="control-group">
+                  <label>Gravité (g): <input type="number" id="gInput" min="1" max="25" step="0.01" value="9.81" /> g</label>
+                  <input type="range" id="gSlider" min="1" max="25" step="0.01" value="9.81" />
+                </div>
+                <div id="mass-control" class="control-group">
+                  <label>Masse (kg): <input type="number" id="mInput" min="0.1" max="100" step="0.1" value="1.0" /> kg</label>
+                  <input type="range" id="mSlider" min="0.1" max="100" step="0.1" value="1.0" />
+                </div>
+              </div>
+
+              <!-- Frottements -->
+              <div class="control-group" style="border-top: 1px solid var(--section-border); padding-top: 10px">
+                <label class="checkbox-group">
+                  <input type="checkbox" id="resistanceCheckbox" /> Résistance de l'air
+                </label>
+              </div>
+
+              <div id="resistance-params" class="hidden">
+                <div class="control-group">
+                  <label style="margin-bottom: 5px">Forme :</label>
+                  <div style="font-size: 11px; display: flex; flex-wrap: wrap; gap: 8px;">
+                    <label><input type="radio" name="projectileShape" value="sphere" checked /> Sphère</label>
+                    <label><input type="radio" name="projectileShape" value="cylinder" /> Cylindre</label>
+                    <label><input type="radio" name="projectileShape" value="bullet" /> Balle</label>
+                    <label><input type="radio" name="projectileShape" value="custom" /> Custom</label>
+                  </div>
+                </div>
+
+                <div class="control-group disabled-by-shape" id="dragCoeff-control">
+                  <label>Coeff. (Cx): <input type="number" id="dragCoeffInput" /></label>
+                  <input type="range" id="dragCoeffSlider" min="0.01" max="1.5" step="0.01" />
+                </div>
+
+                <div class="control-group">
+                  <label>Rayon (r): <input type="number" id="radiusInput" /></label>
+                  <input type="range" id="radiusSlider" min="0.01" max="0.5" step="0.01" value="0.05" />
+                </div>
+
+                <div class="control-group">
+                  <label style="margin-bottom: 5px">Modèle :</label>
+                  <div style="font-size: 11px; display: flex; gap: 10px;">
+                    <label><input type="radio" name="dragModel" value="quadratic" checked /> f ~ v²</label>
+                    <label><input type="radio" name="dragModel" value="linear" /> f ~ v</label>
+                  </div>
+                </div>
+
+                <label class="checkbox-group" style="font-size: 11px; margin-top: 5px;">
+                  <input type="checkbox" id="compareIdealCheckbox" checked /> Comparer trajectoire idéale
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 4: AFFICHAGE -->
+          <div class="section collapsible collapsed">
+            <div class="section-header">👁️ Affichage & Animation</div>
+            <div class="section-content">
+              <div class="control-group">
+                <label>Vitesse anim: <span id="speedValue">1.0x</span></label>
+                <input type="range" id="speedSlider" min="0.2" max="2" step="0.1" value="1" />
+              </div>
+              <div class="control-group">
+                <label>Échelle Vecteurs: <span id="vectorScaleValue">0.3</span></label>
+                <input type="range" id="vectorScaleSlider" min="0.1" max="1.0" step="0.1" value="0.3" />
+              </div>
+
+              <div class="control-group">
+                <label style="margin-bottom: 5px">Repère de référence :</label>
+                <div style="font-size: 11px; display: flex; gap: 15px; color: var(--text-color)">
+                  <label style="margin: 0; cursor: pointer;"><input type="radio" name="coordSystem" value="global" checked /> Global (X,Y,Z)</label>
+                  <label style="margin: 0; cursor: pointer;"><input type="radio" name="coordSystem" value="local" /> Local (X', Z)</label>
+                </div>
+              </div>
+              
+              <div id="velocity-vectors-container" style="margin-top: 10px">
+                <label class="checkbox-group">
+                  <input type="checkbox" id="velocityVectorsCheckbox" checked /> Vecteurs Vitesse
+                </label>
+                <div id="velocity-options" style="margin-left: 20px; font-size: 11px">
+                  <label class="checkbox-group">
+                    <input type="checkbox" id="showComponentsCheckbox" checked /> Composantes Vx, Vy, Vz
+                  </label>
+                  <label class="checkbox-group">
+                    <input type="checkbox" id="showVelocityValuesCheckbox" checked /> Valeurs numériques
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 5: RÉSULTATS -->
+          <div class="section collapsible">
+            <div class="section-header">📊 Résultats</div>
+            <div class="section-content">
+              <div id="results-display" class="result-box"></div>
+              <div id="equation-display" class="result-box" style="margin-top: 10px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

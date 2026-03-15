@@ -1,0 +1,2640 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Simulateur de Mouvement Parabolique</title>
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+        }
+      }
+    </script>
+    <style>
+      /* =========================================
+       1. VARIABLES & THEME
+       ========================================= */
+      :root {
+        /* Thème CLAIR (Par défaut) */
+        --bg-color: #f0f0f0;
+        --panel-bg: rgba(255, 255, 255, 0.95);
+        --text-color: #333;
+        --text-secondary: #666;
+        --input-border: #ccc;
+        --input-focus: #2196f3;
+        --shadow-color: rgba(0, 0, 0, 0.2);
+        --section-border: #ddd;
+        --burger-color: #333;
+        --canvas-bg: #fff;
+        --result-bg: #f9f9f9;
+
+        /* Couleurs spécifiques simulation */
+        --reset-color: #f44336;
+        --pause-color: #2196f3;
+        --go-color: #4caf50;
+      }
+
+      /* Thème SOMBRE */
+      [data-theme="dark"] {
+        --bg-color: #121212;
+        --panel-bg: rgba(30, 30, 30, 0.95);
+        --text-color: #e0e0e0;
+        --text-secondary: #aaa;
+        --input-border: #555;
+        --input-focus: #64b5f6;
+        --shadow-color: rgba(0, 0, 0, 0.6);
+        --section-border: #444;
+        --burger-color: #fff;
+        --canvas-bg: #1e1e1e;
+        --result-bg: #252525;
+      }
+
+      /* =========================================
+       2. CONFIGURATION GÉNÉRALE
+       ========================================= */
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        /* touch-action: none; */ /* Retiré pour éviter les interférences avec Three.js OrbitControls */
+      }
+
+      #container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* =========================================
+       3. ZONE DE SIMULATION (CANVAS)
+       ========================================= */
+      #simulation-area {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        background: var(--canvas-bg);
+        transition: background-color 0.3s;
+        /* Debug Visuel: Bordure temporaire */
+        border: 2px solid orange;
+      }
+
+      #simCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        z-index: 10; /* Assurez-vous que le canvas est au-dessus des autres éléments */
+        pointer-events: auto; /* Assurez-vous que le canvas reçoit les événements */
+        /* Debug Visuel: Bordure et fond temporaires */
+        border: 2px solid red;
+        background-color: rgba(0, 255, 0, 0.1);
+      }
+
+      #graph-title {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        margin: 0;
+        pointer-events: none;
+        color: var(--text-secondary);
+        font-weight: 600;
+        z-index: 5;
+        line-height: 1.4;
+        top: 60px;
+        font-size: 1em;
+        padding: 0 10px;
+        box-sizing: border-box;
+      }
+
+      @media (min-width: 768px) {
+        #graph-title {
+          top: 15px;
+          font-size: 1.2em;
+          padding: 0 60px;
+        }
+      }
+
+      /* =========================================
+       4. PANNEAU LATÉRAL
+       ========================================= */
+      #panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 340px;
+        max-width: 85vw;
+        background: var(--panel-bg);
+        box-shadow: 2px 0 15px var(--shadow-color);
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        backdrop-filter: blur(5px);
+      }
+
+      #panel.open {
+        transform: translateX(0);
+      }
+
+      #panelHeader {
+        padding: 15px 20px;
+        border-bottom: 1px solid var(--section-border);
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.02);
+      }
+
+      [data-theme="dark"] #panelHeader {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      #panelContent {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 15px 20px 15px;
+        scrollbar-width: thin;
+      }
+
+      /* =========================================
+       5. BOUTON BURGER & ICONES
+       ========================================= */
+      #openBtn {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 100; /* Assurez-vous que le bouton est visible et cliquable au-dessus du canvas */
+        background: var(--panel-bg);
+        border: none;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px var(--shadow-color);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        transition: opacity 0.3s;
+      }
+
+      #openBtn.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .burger-line {
+        width: 22px;
+        height: 2px;
+        background-color: var(--burger-color);
+        border-radius: 2px;
+      }
+
+      /* Style boutons icones (Fermer / Theme) */
+      .icon-btn {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 5px 10px;
+        border-radius: 5px;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+      }
+      .icon-btn:hover {
+        background-color: rgba(128, 128, 128, 0.1);
+        color: var(--text-color);
+      }
+
+      /* =========================================
+       6. SECTIONS PLIABLES
+       ========================================= */
+      .section {
+        border-bottom: 1px solid var(--section-border);
+        margin-bottom: 0;
+      }
+
+      .section-header {
+        padding: 15px 5px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+      }
+
+      .section-header::after {
+        content: "▼";
+        font-size: 10px;
+        color: var(--text-secondary);
+        transition: transform 0.3s;
+      }
+
+      .section.collapsed .section-header::after {
+        transform: rotate(-90deg);
+      }
+
+      .section.collapsed .section-content {
+        display: none;
+      }
+
+      .section-content {
+        padding: 0 5px 15px 5px;
+      }
+
+      /* =========================================
+       7. INPUTS & CONTROLES
+       ========================================= */
+      .control-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        color: var(--text-secondary);
+      }
+
+      input[type="number"] {
+        width: 60px;
+        padding: 4px;
+        border: 1px solid var(--input-border);
+        border-radius: 4px;
+        text-align: right;
+        font-size: 13px;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+      }
+
+      input[type="range"] {
+        width: 100%;
+        margin-top: 5px;
+        cursor: pointer;
+      }
+
+      /* Boutons d'action */
+      .action-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .btn {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        border-radius: 6px;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        cursor: pointer;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: opacity 0.2s;
+      }
+      .btn:hover {
+        opacity: 0.9;
+      }
+
+      .btn-go {
+        background-color: var(--go-color);
+      }
+      .btn-reset {
+        background-color: var(--reset-color);
+      }
+      .btn-pause {
+        background-color: var(--pause-color);
+      }
+
+      /* Checkbox group */
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--text-color);
+      }
+      .checkbox-group label {
+        margin: 0;
+        color: var(--text-color);
+      }
+
+      /* Résultats */
+      #results-display,
+      #equation-display,
+      #resistance-params,
+      #solutions-display {
+        background: var(--result-bg);
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--section-border);
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-color);
+      }
+
+      #solutions-display button {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        border: 1px solid var(--input-border);
+        background: var(--bg-color);
+        color: var(--text-color);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #solutions-display button.selected-solution {
+        background: var(--go-color);
+        color: white;
+        border-color: var(--go-color);
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      /* Style désactivé */
+      .disabled-by-shape {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Bouton Burger -->
+    <button id="openBtn">
+      <span class="burger-line"></span>
+      <span class="burger-line"></span>
+      <span class="burger-line"></span>
+    </button>
+
+    <div id="container">
+      <!-- Zone Canvas -->
+      <div id="simulation-area">
+        <h4 id="graph-title">Trajectoire du projectile</h4>
+        <canvas id="simCanvas"></canvas>
+      </div>
+
+      <!-- PANNEAU LATÉRAL -->
+      <div id="panel">
+        <div id="panelHeader">
+          <!-- Bouton Thème -->
+          <button
+            id="themeToggleBtn"
+            class="icon-btn"
+            title="Changer de thème"
+            style="margin-right: 15px"
+          >
+            ☀️
+          </button>
+
+          <!-- Bouton Fermer (Croix) -->
+          <button id="closePanelHeaderBtn" class="icon-btn" style="font-size: 24px" title="Fermer">✕</button>
+        </div>
+
+        <div id="panelContent">
+          <!-- SECTION 1: MODES & ACTIONS -->
+          <div class="section collapsible">
+            <div class="section-header">⚙️ Contrôles Principaux</div>
+            <div class="section-content">
+              <div
+                class="mode-selector"
+                style="margin-bottom: 15px; display: flex; gap: 15px; color: var(--text-color)"
+              >
+                <label style="margin: 0; cursor: pointer; color: var(--text-color)"
+                  ><input type="radio" name="mode" value="simulation" checked /> Simulation</label
+                >
+                <label style="margin: 0; cursor: pointer; color: var(--text-color)"
+                  ><input type="radio" name="mode" value="target" /> Cible</label
+                >
+              </div>
+
+              <div class="action-row">
+                <button id="pauseButton" class="btn btn-go">Go</button>
+                <button id="resetButton" class="btn btn-reset">Reset</button>
+              </div>
+
+              <!-- Boutons mobile Go cachés, on utilise ceux ci-dessus -->
+              <button id="mobileParamsButton" class="hidden"></button>
+              <button id="mobileGoButton" class="hidden"></button>
+            </div>
+          </div>
+
+          <!-- SECTION 2: LANCEMENT -->
+          <div class="section collapsible">
+            <div class="section-header">🚀 Paramètres de Tir</div>
+            <div class="section-content">
+              <!-- Mode Simulation -->
+              <div id="simulation-controls">
+                <div class="control-group">
+                  <label>Vitesse (v₀): <input type="number" id="v0Input" /> m/s</label>
+                  <input type="range" id="v0Slider" min="1" max="50" step="0.1" value="20" />
+                </div>
+                <div class="control-group">
+                  <label>Angle (α): <input type="number" id="alphaInput" /> °</label>
+                  <input type="range" id="alphaSlider" min="0" max="90" step="1" value="45" />
+                </div>
+                <div class="control-group">
+                  <label>Angle Z (β): <input type="number" id="outOfPlaneInput" step="1" value="0" /> °</label>
+                  <input type="range" id="outOfPlaneSlider" min="-90" max="90" step="1" value="0" />
+                </div>
+              </div>
+
+              <!-- Mode Cible -->
+              <div id="target-controls" class="hidden">
+                <div class="control-group">
+                  <label>Vitesse (v₀): <input type="number" id="v0TargetInput" /> m/s</label>
+                  <input type="range" id="v0TargetSlider" min="1" max="50" step="0.1" value="20" />
+                </div>
+                <div class="control-group">
+                  <label>Cible X (m): <input type="number" id="targetXInput" step="0.5" value="25" /></label>
+                  <input type="range" id="targetXSlider" min="1" max="100" step="0.5" value="25" />
+                </div>
+                <div class="control-group">
+                  <label>Cible Y (m): <input type="number" id="targetYInput" step="0.5" value="10" /></label>
+                  <input type="range" id="targetYSlider" min="0" max="50" step="0.5" value="10" />
+                </div>
+                <div class="control-group">
+                  <label>Cible Z (m): <input type="number" id="targetZInput" step="0.5" value="0" /></label>
+                  <input type="range" id="targetZSlider" min="-20" max="20" step="0.5" value="0" />
+                </div>
+                <div id="solutions-display"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 3: ENVIRONNEMENT -->
+          <div class="section collapsible collapsed">
+            <div class="section-header">🌍 Environnement & Physique</div>
+            <div class="section-content">
+              <div id="common-controls">
+                <div class="control-group">
+                  <label>Hauteur départ (h): <input type="number" id="hInput" /></label>
+                  <input type="range" id="hSlider" min="0" max="50" step="0.5" value="0" />
+                </div>
+
+                <div id="h-arrivee-control" class="control-group">
+                  <label>Hauteur arrivée: <input type="number" id="hArriveeInput" /></label>
+                  <input type="range" id="hArriveeSlider" min="0" max="50" step="0.5" value="0" />
+                </div>
+
+                <div class="control-group">
+                  <label>Gravité (g): <input type="number" id="gInput" min="1" max="25" step="0.01" value="9.81" /> g</label>
+                  <input type="range" id="gSlider" min="1" max="25" step="0.01" value="9.81" />
+                </div>
+
+                <div id="mass-control" class="control-group">
+                  <label>Masse (kg): <input type="number" id="mInput" min="0.1" max="100" step="0.1" value="1.0" /> kg</label>
+                  <input type="range" id="mSlider" min="0.1" max="100" step="0.1" value="1.0" />
+                </div>
+              </div>
+
+              <!-- Frottements -->
+              <div class="control-group" style="border-top: 1px solid var(--section-border); padding-top: 10px">
+                <label style="cursor: pointer; font-weight: bold; color: var(--text-color)">
+                  <input type="checkbox" id="resistanceCheckbox" style="margin-right: 8px" /> Résistance de l'air
+                </label>
+              </div>
+
+              <div id="resistance-params" class="hidden">
+                <!-- Forme -->
+                <div class="control-group">
+                  <label style="margin-bottom: 5px">Forme :</label>
+                  <div style="font-size: 11px; display: flex; flex-wrap: wrap; gap: 8px; color: var(--text-color)">
+                    <label style="color: var(--text-color)"
+                      ><input type="radio" name="projectileShape" value="sphere" checked /> Sphère</label
+                    >
+                    <label style="color: var(--text-color)"
+                      ><input type="radio" name="projectileShape" value="cylinder" /> Cylindre</label
+                    >
+                    <label style="color: var(--text-color)"
+                      ><input type="radio" name="projectileShape" value="bullet" /> Balle</label
+                    >
+                    <label style="color: var(--text-color)"
+                      ><input type="radio" name="projectileShape" value="custom" /> Custom</label
+                    >
+                  </div>
+                </div>
+
+                <div class="control-group" id="dragCoeff-control">
+                  <label>Coeff. (Cx): <input type="number" id="dragCoeffInput" /></label>
+                  <input type="range" id="dragCoeffSlider" min="0.01" max="1.5" step="0.01" />
+                </div>
+
+                <div class="control-group">
+                  <label>Rayon (r): <input type="number" id="radiusInput" /></label>
+                  <input type="range" id="radiusSlider" min="0.01" max="0.5" step="0.01" value="0.05" />
+                </div>
+
+                <div class="control-group">
+                  <label style="margin-bottom: 5px">Modèle :</label>
+                  <div style="font-size: 11px; display: flex; gap: 10px; color: var(--text-color)">
+                    <label style="color: var(--text-color)"
+                      ><input type="radio" name="dragModel" value="quadratic" checked /> f ~ v²</label
+                    >
+                    <label style="color: var(--text-color)"
+                      ><input type="radio" name="dragModel" value="linear" /> f ~ v</label
+                    >
+                  </div>
+                </div>
+
+                <label style="font-size: 11px; margin-top: 5px; color: var(--text-color)">
+                  <input type="checkbox" id="compareIdealCheckbox" checked /> Comparer trajectoire idéale
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 4: AFFICHAGE -->
+          <div class="section collapsible collapsed">
+            <div class="section-header">👁️ Affichage & Animation</div>
+            <div class="section-content">
+              <div class="control-group">
+                <label>Vitesse anim: <span id="speedValue">1.0x</span></label>
+                <input type="range" id="speedSlider" min="0.2" max="2" step="0.1" value="1" />
+              </div>
+
+              <div class="control-group">
+                <label>Échelle Vecteurs Vitesse: <span id="vectorScaleValue">0.3</span></label>
+                <input type="range" id="vectorScaleSlider" min="0.1" max="1.0" step="0.1" value="0.3" />
+              </div>
+
+              <div id="enveloppe-checkbox-container" class="checkbox-group">
+                <input type="checkbox" id="enveloppeCheckbox" checked />
+                <label for="enveloppeCheckbox">Afficher l'Enveloppe</label>
+              </div>
+
+              <div id="velocity-vectors-container" style="margin-top: 10px">
+                <div class="checkbox-group">
+                  <input type="checkbox" id="velocityVectorsCheckbox" checked />
+                  <label for="velocityVectorsCheckbox">Vecteurs Vitesse</label>
+                </div>
+
+                <div id="velocity-options" style="margin-left: 20px; font-size: 11px">
+                  <div class="checkbox-group">
+                    <input type="checkbox" id="showComponentsCheckbox" checked />
+                    <label>Composantes Vx, Vy, Vz</label>
+                  </div>
+                  <div class="checkbox-group">
+                    <input type="checkbox" id="showVelocityValuesCheckbox" checked />
+                    <label>Valeurs numériques</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 5: RÉSULTATS -->
+          <div class="section collapsible">
+            <div class="section-header">📊 Résultats</div>
+            <div class="section-content">
+              <div id="results-display"></div>
+              <div id="equation-display" style="margin-top: 10px"></div>
+            </div>
+          </div>
+
+          <div style="font-size: 10px; color: #999; text-align: center; margin-top: 20px">
+            © ESPARSA Michel - 03/11/2025
+          </div>
+        </div>
+      </div>
+
+      <!-- Éléments desktop cachés car intégrés au panel -->
+      <div id="results-display-desktop" class="hidden"></div>
+      <div id="equation-display-desktop" class="hidden"></div>
+      <div id="credits-desktop" class="hidden"></div>
+      <button id="closePanelButton" class="hidden"></button>
+    </div>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      const DT = 0.016; // Déplacée ici pour une meilleure accessibilité globale
+      const SPEED_SCALE = 0.25; // 1x sur le slider = 0.25x réel
+
+      /* =========================================================================
+         LOGIQUE UI : PANNEAU RÉTRACTABLE & GESTES
+         ========================================================================= */
+
+      let panelOpen = false;
+      let panel; // Déclarée globalement ici
+      let openBtn; // Déclarée globalement ici
+
+      // 1. Ouvrir / Fermer
+      function togglePanel() {
+        panelOpen = !panelOpen;
+        if (panel) panel.classList.toggle("open", panelOpen);
+        if (openBtn) openBtn.classList.toggle("hidden", panelOpen); // Utilise toggle avec un second argument
+      }
+
+      function openPanel() {
+        if (!panelOpen) {
+          togglePanel();
+        }
+      }
+
+      function closePanel() {
+        if (panelOpen) {
+          togglePanel();
+        }
+      }
+
+      // 2. Sections Pliables
+      document.addEventListener("DOMContentLoaded", () => {
+        const headers = document.querySelectorAll(".section-header");
+        headers.forEach((header) => {
+          header.addEventListener("click", () => {
+            const section = header.parentElement;
+            section.classList.toggle("collapsed");
+          });
+        });
+      });
+
+      // 3. Swipe Tactile
+      let touchstartX = 0;
+      let touchstartY = 0;
+      let touchEndX = 0;
+      let touchEndY = 0;
+      const SWIPE_THRESHOLD = 50;
+
+      document.addEventListener(
+        "touchstart",
+        function (event) {
+          touchstartX = event.changedTouches[0].screenX;
+          touchstartY = event.changedTouches[0].screenY;
+        },
+        { passive: false }
+      );
+
+      document.addEventListener(
+        "touchend",
+        function (event) {
+          touchEndX = event.changedTouches[0].screenX;
+          touchEndY = event.changedTouches[0].screenY;
+          handleSwipe(event);
+        },
+        { passive: false }
+      );
+
+      function handleSwipe(e) {
+        if (e.target.type === "range") return;
+
+        const diffX = touchEndX - touchstartX;
+        const diffY = touchEndY - touchstartY;
+
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+          if (diffX > SWIPE_THRESHOLD && touchstartX < 50 && !panelOpen) {
+            togglePanel();
+          }
+          if (diffX < -SWIPE_THRESHOLD && panelOpen) {
+            togglePanel();
+          }
+        }
+      }
+
+      /* =========================================================================
+         CODE DE SIMULATION PHYSIQUE
+         ========================================================================= */
+
+      let canvas; // Declare globally, assign inside setupCanvas
+      // let ctx; // Remove 2D context variable
+      let scene, camera, renderer;
+      let projectileMesh, targetMesh, impactPointMesh, idealTrajectoryLine, mainTrajectoryLine, trajectory1Line, trajectory2Line, trajectory1Marker, trajectory2Marker;
+      let velocityVector, vxVector, vyVector, vzVector, v0Vector;
+      let alphaArc, betaArc, betaProjection;
+      const velocityLabels = {};
+      let axesHelper, gridHelper;
+      let controls;
+      let resultsDisplay, resultsDisplayDesktop, equationDisplay, equationDisplayDesktop;
+      let values; // Déclarée globalement ici
+      let enveloppeCheckbox; // Déclarée globalement ici
+      let modeRadios; // Déclarée globalement ici
+      let mobileParamsButton, mobileGoButton, closePanelButton;
+      let solutionsDisplay;
+      let simulationControls, targetControls, commonControls;
+      let hArriveeControl, massControl; // Déclarées globalement ici
+
+      const resistanceCheckbox = document.getElementById("resistanceCheckbox");
+      const resistanceParamsDiv = document.getElementById("resistance-params");
+      const enveloppeCheckboxContainer = document.getElementById("enveloppe-checkbox-container");
+
+      let sliders = {}; // Declare, initialize in setupEventListeners
+      let inputs = {}; // Declare, initialize in setupEventListeners
+
+      let state = {
+        v0: 0,
+        alpha: 0,
+        outOfPlaneAngleDeg: 0, // Angle hors-plan (Z)
+        vz0: 0, // Vitesse selon Z
+        h: 0,
+        hArrivee: 0,
+        g: 0,
+        m: 1.0,
+        speedFactor: SPEED_SCALE,
+        trajectoire: [],
+        trajectoire1: [],
+        trajectoire2: [],
+        isDualTrajectoryMode: false,
+        enveloppe: [],
+        yMax: 0,
+        porteeX: 0,
+        dureeVol: 0,
+        tSommet: 0,
+        xSommet: 0,
+        vImpact: 0,
+        eInitiale: 0,
+        eImpact: 0,
+        currentFrameIndex: 0,
+        isPaused: true,
+        isUpdating: false,
+        animationId: null,
+        staticResultsHTML: "",
+        mode: "simulation",
+        isResistanceActive: false,
+        radius: 0.05,
+        dragCoeff: 0.47,
+        airDensity: 1.225,
+        dragModel: "quadratic",
+        idealTrajectoire: [],
+        showIdealTrajectory: false,
+        target: { x: 25, y: 10, z: 0 }, // Ajout de la coordonnée z pour la cible
+        solutions: [],
+        showFinalTrajectory: true,
+        simulationStarted: false, // Tracker si la simulation a été lancée
+        isDraggingTarget: false,
+        showVectors: true,
+        positions: [],
+        startTime: 0,
+        showVelocityVectors: true,
+        showVelocityComponents: true,
+        showVelocityValues: true,
+        velocityVectorScale: 0.3,
+        projectileShape: "sphere",
+      };
+      const DRAG_COEFF_PRESETS = {
+        sphere: 0.47,
+        cylinder: 1.17,
+        bullet: 0.295,
+        custom: null,
+      };
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const toDeg = (rad) => (rad * 180) / Math.PI;
+
+      function calculerVitesseMinimale(g, x_target, y_target, h_depart) {
+        const y_minus_h = y_target - h_depart;
+        const sous_racine = Math.sqrt(Math.pow(y_minus_h, 2) + Math.pow(x_target, 2));
+        const v0_carre = g * (y_minus_h + sous_racine);
+        if (v0_carre < 0) return null;
+        return Math.sqrt(v0_carre);
+      }
+
+      function calculerTrajectoireAvecFrottement(
+        v0,
+        alphaRad,
+        h,
+        g,
+        m,
+        hArrivee,
+        radius,
+        dragCoeff,
+        airDensity,
+        dragModel
+      ) {
+        let trajectoire = [{ x: 0, y: h }];
+        let x = 0,
+          y = h;
+        let vx = v0 * Math.cos(alphaRad);
+        let vy = v0 * Math.sin(alphaRad);
+        let t = 0;
+        let yMax = h,
+          xSommet = 0,
+          tSommet = 0;
+        let isFalling = false;
+        const area = Math.PI * radius ** 2;
+
+        let dragConstant;
+        if (dragModel === "quadratic") {
+          dragConstant = 0.5 * airDensity * area * dragCoeff;
+        } else {
+          dragConstant = dragCoeff * radius * airDensity * 0.1;
+        }
+
+        const maxSteps = 50000;
+        let step = 0;
+
+        while ((y >= hArrivee || vy > 0) && step < maxSteps) {
+          const v = Math.sqrt(vx ** 2 + vy ** 2);
+          if (v === 0) break;
+
+          let F_drag_mag = dragModel === "quadratic" ? dragConstant * v ** 2 : dragConstant * v;
+          const F_drag_x = -F_drag_mag * (vx / v);
+          const F_drag_y = -F_drag_mag * (vy / v);
+          const F_gravity_y = -m * g;
+
+          const ax = F_drag_x / m;
+          const ay = (F_drag_y + F_gravity_y) / m;
+
+          vx += ax * DT;
+          vy += ay * DT;
+          x += vx * DT;
+          y += vy * DT;
+          t += DT;
+          step++;
+
+          trajectoire.push({ x, y });
+
+          if (vy < 0 && !isFalling) {
+            isFalling = true;
+            yMax = y;
+            xSommet = x;
+            tSommet = t;
+          }
+        }
+
+        const vImpact = Math.sqrt(vx ** 2 + vy ** 2);
+        const eInitiale = m * g * h + 0.5 * m * v0 ** 2;
+        const eImpact = 0.5 * m * vImpact ** 2;
+
+        return {
+          yMax,
+          porteeX: x,
+          dureeVol: t,
+          tSommet,
+          xSommet,
+          vImpact,
+          eInitiale,
+          eImpact,
+          trajectoire,
+        };
+      }
+
+      function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, vz0 = 0) {
+        console.log("calculerCaracteristiques: Inputs - v0:", v0, "alphaRad:", alphaRad, "h:", h, "g:", g, "m:", m, "hArrivee:", hArrivee, "vz0:", vz0);
+        if (g <= 0 || v0 <= 0)
+          return {
+            yMax: h,
+            porteeX: 0,
+            dureeVol: 0,
+            tSommet: 0,
+            xSommet: 0,
+            vImpact: v0,
+            eInitiale: m * g * h,
+            eImpact: 0,
+            trajectoire: [],
+          };
+
+        const eInitiale = m * g * h + 0.5 * m * v0 ** 2;
+        let tSommet = (v0 * Math.sin(alphaRad)) / g;
+        let yVertex = -0.5 * g * tSommet ** 2 + v0 * Math.sin(alphaRad) * tSommet + h;
+        let xVertex = v0 * Math.cos(alphaRad) * tSommet;
+        let yMax = yVertex,
+          xSommet = xVertex,
+          tSommetEff = tSommet;
+
+        if (tSommet <= 0) {
+          tSommetEff = 0;
+          yMax = h;
+          xSommet = 0;
+        } else {
+          if (yMax < h) yMax = h;
+        }
+
+        const A = -0.5 * g;
+        const B = v0 * Math.sin(alphaRad);
+        const C = h - hArrivee;
+        const discriminant = B ** 2 - 4 * A * C;
+        console.log("calculerCaracteristiques: Discriminant:", discriminant);
+        let dureeVol = 0;
+        if (!(yMax < hArrivee && B >= 0) && discriminant >= 0) {
+          const t1 = (-B + Math.sqrt(discriminant)) / (2 * A);
+          const t2 = (-B - Math.sqrt(discriminant)) / (2 * A);
+          dureeVol = Math.max(t1, t2, 0);
+        }
+        console.log("calculerCaracteristiques: DureeVol:", dureeVol);
+
+        const porteeX = v0 * Math.cos(alphaRad) * dureeVol;
+        const vxImpact = v0 * Math.cos(alphaRad);
+        const vyImpact = -g * dureeVol + v0 * Math.sin(alphaRad);
+        const vImpact = Math.sqrt(vxImpact ** 2 + vyImpact ** 2);
+        const eImpact = 0.5 * m * vImpact ** 2;
+
+        let trajectoire = [];
+        if (dureeVol > 0) {
+          for (let t = 0; t <= dureeVol; t += DT) {
+            const x = v0 * Math.cos(alphaRad) * t;
+            const y = -0.5 * g * t ** 2 + v0 * Math.sin(alphaRad) * t + h;
+            const z = vz0 * t;
+            trajectoire.push({ x, y, z });
+          }
+          trajectoire.push({ x: porteeX, y: hArrivee, z: vz0 * dureeVol });
+        } else {
+          trajectoire.push({ x: 0, y: h, z: 0 });
+        }
+        console.log("calculerCaracteristiques: Trajectoire length:", trajectoire.length);
+
+        return {
+          yMax,
+          porteeX,
+          dureeVol,
+          tSommet: tSommetEff,
+          xSommet,
+          vImpact,
+          eInitiale,
+          eImpact,
+          trajectoire,
+        };
+      }
+
+      function calculerEnveloppe(v0, h, g) {
+        if (v0 <= 0 || g <= 0) return { x: [], y: [] };
+        const xMaxEnv = (v0 / g) * Math.sqrt(v0 ** 2 + 2 * g * h);
+        const xPoints = [],
+          yPoints = [];
+        for (let i = 0; i <= 1; i += 0.01) {
+          const x = i * xMaxEnv;
+          const y = h + v0 ** 2 / (2 * g) - (g / (2 * v0 ** 2)) * x ** 2;
+          if (y >= 0) {
+            xPoints.push(x);
+            yPoints.push(y);
+          }
+        }
+        return { x: xPoints, y: yPoints };
+      }
+
+      function setupCanvas() {
+        canvas = document.getElementById("simCanvas");
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+
+        if (!renderer) {
+          scene = new THREE.Scene();
+          camera = new THREE.PerspectiveCamera(75, rect.width / rect.height, 0.1, 1000);
+          renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
+          renderer.setPixelRatio(dpr);
+          renderer.setSize(rect.width, rect.height);
+          camera.position.set(50, 50, 50);
+          camera.lookAt(0, 0, 0);
+
+          const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+          scene.add(ambientLight);
+          const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+          directionalLight.position.set(1, 1, 1).normalize();
+          scene.add(directionalLight);
+
+          window.addEventListener('resize', onWindowResize, false);
+        }
+
+        if (!projectileMesh) {
+          const projectileGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+          projectileMesh = new THREE.Mesh(projectileGeometry, new THREE.MeshPhongMaterial());
+          scene.add(projectileMesh);
+        }
+
+        if (!mainTrajectoryLine) {
+          mainTrajectoryLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial());
+          scene.add(mainTrajectoryLine);
+        }
+        if (!idealTrajectoryLine) {
+          idealTrajectoryLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial());
+          scene.add(idealTrajectoryLine);
+        }
+        if (!trajectory1Line) {
+          trajectory1Line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial());
+          scene.add(trajectory1Line);
+        }
+        if (!trajectory2Line) {
+          trajectory2Line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial());
+          scene.add(trajectory2Line);
+        }
+        if (!trajectory1Marker) {
+          const markerGeom = new THREE.SphereGeometry(0.6, 20, 20);
+          const markerMat = new THREE.MeshPhongMaterial({ color: 0xff0000, emissive: 0x330000 }); // rouge
+          trajectory1Marker = new THREE.Mesh(markerGeom, markerMat);
+          trajectory1Marker.renderOrder = 2;
+          trajectory1Marker.visible = false;
+          scene.add(trajectory1Marker);
+        }
+        if (!trajectory2Marker) {
+          const markerGeom2 = new THREE.SphereGeometry(0.6, 20, 20);
+          const markerMat2 = new THREE.MeshPhongMaterial({ color: 0x800080, emissive: 0x220022 }); // violet
+          trajectory2Marker = new THREE.Mesh(markerGeom2, markerMat2);
+          trajectory2Marker.renderOrder = 2;
+          trajectory2Marker.visible = false;
+          scene.add(trajectory2Marker);
+        }
+
+        if (!axesHelper) {
+          axesHelper = new THREE.AxesHelper(50);
+          scene.add(axesHelper);
+        }
+        if (!gridHelper) {
+          const initialIsDark = document.documentElement.getAttribute("data-theme") === "dark";
+          const gridColorCenter = initialIsDark ? 0x444444 : 0xcccccc;
+          const gridColorGrid = initialIsDark ? 0x222222 : 0xaaaaaa;
+          gridHelper = new THREE.GridHelper(100, 100, gridColorCenter, gridColorGrid);
+          scene.add(gridHelper);
+        }
+
+        if (!targetMesh) {
+          const targetGeometry = new THREE.ConeGeometry(0.5, 2, 32);
+          targetMesh = new THREE.Mesh(targetGeometry, new THREE.MeshPhongMaterial());
+          targetMesh.rotation.x = Math.PI / 2;
+          scene.add(targetMesh);
+        }
+
+        if (!impactPointMesh) {
+          const impactGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+          const impactMaterial = new THREE.MeshPhongMaterial({ color: 0x4facfe });
+          impactPointMesh = new THREE.Mesh(impactGeometry, impactMaterial);
+          scene.add(impactPointMesh);
+        }
+
+        if (!controls) {
+          controls = new OrbitControls(camera, canvas);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.25;
+          controls.screenSpacePanning = false;
+          controls.maxPolarAngle = Math.PI / 2;
+        }
+
+        // Velocity Vectors setup
+        if (!velocityVector) {
+          const shaft = 0.2, head = 0.1;
+          velocityVector = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0x4facfe, shaft, head);
+          vxVector = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xcccccc, shaft, head);
+          vyVector = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xcccccc, shaft, head);
+          vzVector = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xcccccc, shaft, head);
+          scene.add(velocityVector);
+          scene.add(vxVector);
+          scene.add(vyVector);
+          scene.add(vzVector);
+        }
+
+        // V0 Vector setup
+        if (!v0Vector) {
+          v0Vector = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0x4facfe, 0.5, 0.2);
+          scene.add(v0Vector);
+        }
+      }
+
+      function onWindowResize() {
+        const rect = canvas.getBoundingClientRect();
+        camera.aspect = rect.width / rect.height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(rect.width, rect.height);
+        if (state.mode === "simulation") update();
+        else calculateTargetSolutions();
+      }
+
+      function drawAxes(xMax, yMax) {
+        if (axesHelper) axesHelper.visible = true;
+        if (gridHelper) gridHelper.visible = true;
+      }
+
+      function makeLabelSprite(text, color = "#ffffff") {
+        const canvas = document.createElement("canvas");
+        const size = 512; // Augmenté pour éviter la troncature
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "rgba(0,0,0,0)";
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = color;
+        ctx.font = "48px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, size / 2, size / 2);
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(2.5, 2.5, 1);
+        sprite.renderOrder = 3;
+        return sprite;
+      }
+
+      function updateLabel(name, text, position, color = "#ffffff") {
+        if (!velocityLabels[name]) {
+          const sprite = makeLabelSprite(text, color);
+          velocityLabels[name] = sprite;
+          scene.add(sprite);
+        } else {
+          const sprite = velocityLabels[name];
+          const canvas = sprite.material.map.image;
+          const ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "rgba(0,0,0,0)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = color;
+          ctx.font = "48px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+          sprite.material.map.needsUpdate = true;
+        }
+        velocityLabels[name].position.copy(position);
+        velocityLabels[name].visible = true;
+      }
+
+      function hideLabels() {
+        Object.values(velocityLabels).forEach((s) => (s.visible = false));
+      }
+
+      function drawInstantaneousVelocityVectors(state, trajectory, frameIndex) {
+        if (!state.showVelocityVectors || !trajectory || trajectory.length === 0) {
+          velocityVector.visible = false;
+          vxVector.visible = false;
+          vyVector.visible = false;
+          if (vzVector) vzVector.visible = false;
+          hideLabels();
+          return;
+        }
+
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        const simVecColor = isDark ? 0x4facfe : 0x0000ff;
+        const compColor = isDark ? 0xcccccc : 0x888888;
+
+        // Ancien code pour déterminer frameIndex, non nécessaire si passé en argument
+        // let frameIndex = Math.floor(state.currentFrameIndex);
+
+        function getVelocityAtFrame(traj, index) {
+          const n = traj.length;
+          if (n === 0) return { vx: 0, vy: 0, vz: 0, v: 0 };
+          const i = Math.min(Math.max(0, index), n - 1);
+
+          // Cas sans résistance : formule analytique (plus stable)
+          if (!state.isResistanceActive && state.mode === "simulation") {
+            const t = i * DT;
+            const alphaRad = toRad(state.alpha);
+            const betaRad = toRad(state.outOfPlaneAngleDeg || 0);
+            const vxy = state.v0 * Math.cos(betaRad);
+            const vx = vxy * Math.cos(alphaRad);
+            const vy = state.v0 * Math.sin(alphaRad) - state.g * t; // devient négatif en descente
+            const vz = state.v0 * Math.sin(betaRad);
+            const v = Math.sqrt(vx * vx + vy * vy + vz * vz);
+            return { vx, vy, vz, v };
+          }
+
+          const getZ = (p) => (p.z !== undefined ? p.z : 0);
+
+          // Mode résistance ou cible : différence arrière (i-1 -> i) pour conserver le signe correct
+          let vx = 0, vy = 0, vz = 0;
+          if (i > 0) {
+            const a = traj[i - 1];
+            const b = traj[i];
+            const dt = DT;
+            vx = (b.x - a.x) / dt;
+            vy = (b.y - a.y) / dt;
+            vz = (getZ(b) - getZ(a)) / dt;
+          } else if (n > 1) {
+            const a = traj[0];
+            const b = traj[1];
+            const dt = DT;
+            vx = (b.x - a.x) / dt;
+            vy = (b.y - a.y) / dt;
+            vz = (getZ(b) - getZ(a)) / dt;
+          }
+
+          const v = Math.sqrt(vx * vx + vy * vy + vz * vz);
+          return { vx, vy, vz, v };
+        }
+
+        const drawVectorSet = (pos, vel, mainColor, componentColor) => {
+          const visualScale = state.velocityVectorScale;
+          const origin = new THREE.Vector3(pos.x, pos.y, pos.z || 0);
+
+          // Velocity vector (3D)
+          const dir = new THREE.Vector3(vel.vx, vel.vy, vel.vz || 0);
+          const hasMag = dir.length() > 1e-6;
+          if (hasMag) dir.normalize();
+          const length = vel.v * visualScale;
+          velocityVector.setDirection(hasMag ? dir : new THREE.Vector3(1, 0, 0));
+          velocityVector.position.copy(origin);
+          velocityVector.setLength(length, 0.2, 0.1);
+          (velocityVector.line.material).color.set(mainColor);
+          (velocityVector.cone.material).color.set(mainColor);
+          velocityVector.visible = vel.v > 0.05;
+
+          // Position labels at vector tips
+          const vTip = origin.clone().add(dir.clone().multiplyScalar(length));
+          updateLabel("vLabel", `v=${vel.v.toFixed(2)} m/s`, vTip.clone().add(new THREE.Vector3(0, 0.8, 0)), "#4facfe");
+
+          if (state.showVelocityComponents) {
+            // Vx vector along global x
+            const vxDir = new THREE.Vector3(1, 0, 0);
+            const vxLength = Math.abs(vel.vx) * visualScale;
+            vxVector.setDirection(vxDir);
+            vxVector.position.copy(origin);
+            vxVector.setLength(vxLength, 0.2, 0.1);
+            (vxVector.line.material).color.set(componentColor);
+            (vxVector.cone.material).color.set(componentColor);
+            vxVector.visible = Math.abs(vel.vx) > 0.1;
+            const vxTip = origin.clone().add(new THREE.Vector3(vel.vx * visualScale, 0, 0));
+            updateLabel("vxLabel", `vx=${vel.vx.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 0.6, 1.2)), "#cccccc");
+
+            // Vy vector along global y
+            const vyDir = new THREE.Vector3(0, Math.sign(vel.vy) || 1, 0);
+            const vyLength = Math.abs(vel.vy) * visualScale;
+            vyVector.setDirection(vyDir);
+            vyVector.position.copy(vxTip);
+            vyVector.setLength(vyLength, 0.2, 0.1);
+            (vyVector.line.material).color.set(componentColor);
+            (vyVector.cone.material).color.set(componentColor);
+            vyVector.visible = Math.abs(vel.vy) > 0.1;
+            const vyTip = vxTip.clone().add(new THREE.Vector3(0, vel.vy * visualScale, 0));
+            updateLabel("vyLabel", `vy=${vel.vy.toFixed(2)} m/s`, vyTip.clone().add(new THREE.Vector3(0, 0.1, 0)), "#cccccc");
+
+            // Vz vector along global z
+            const vzDir = new THREE.Vector3(0, 0, Math.sign(vel.vz) || 1);
+            const vzLength = Math.abs(vel.vz) * visualScale;
+            vzVector.setDirection(vzDir);
+            vzVector.position.copy(vyTip);
+            vzVector.setLength(vzLength, 0.2, 0.1);
+            (vzVector.line.material).color.set(componentColor);
+            (vzVector.cone.material).color.set(componentColor);
+            vzVector.visible = Math.abs(vel.vz) > 0.1;
+            const vzTip = vyTip.clone().add(new THREE.Vector3(0, 0, vel.vz * visualScale));
+            updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(0, 0, 0.1)), "#cccccc");
+          } else {
+            vxVector.visible = false;
+            vyVector.visible = false;
+            if (vzVector) vzVector.visible = false;
+            ["vxLabel", "vyLabel", "vzLabel"].forEach((k) => velocityLabels[k] && (velocityLabels[k].visible = false));
+          }
+        };
+
+        if (state.isDualTrajectoryMode) {
+          velocityVector.visible = false;
+          vxVector.visible = false;
+          vyVector.visible = false;
+          if (vzVector) vzVector.visible = false;
+          hideLabels();
+        } else {
+          const trajToUse = trajectory || (state.trajectoire.length > 0 ? state.trajectoire : state.trajectoire1); // Utilise trajectory si fourni, sinon le comportement existant
+          const idxToUse = frameIndex !== undefined ? frameIndex : Math.floor(state.currentFrameIndex);
+
+          if (trajToUse.length > 0) {
+            const index = Math.min(idxToUse, trajToUse.length - 1);
+            const pos = trajToUse[index];
+            const vel = getVelocityAtFrame(trajToUse, index);
+            drawVectorSet(pos, vel, simVecColor, compColor);
+          } else {
+            velocityVector.visible = false;
+            vxVector.visible = false;
+            vyVector.visible = false;
+            if (vzVector) vzVector.visible = false;
+            hideLabels();
+          }
+        }
+      }
+
+      function createArc(startAngle, endAngle, radius, color, plane = 'xy') {
+        const points = [];
+        const segments = 32;
+        for (let i = 0; i <= segments; i++) {
+          const angle = startAngle + (endAngle - startAngle) * (i / segments);
+          let x, y, z;
+          if (plane === 'xy') {
+            x = radius * Math.cos(angle);
+            y = radius * Math.sin(angle);
+            z = 0;
+          } else if (plane === 'xz') {
+            x = radius * Math.cos(angle);
+            y = 0;
+            z = radius * Math.sin(angle);
+          }
+          points.push(new THREE.Vector3(x, y, z));
+        }
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+        return new THREE.Line(geometry, material);
+      }
+
+      function drawV0Vector(angleDeg, color) {
+        if (state.v0 <= 0) {
+          v0Vector.visible = false;
+          // Cacher les labels v0, alpha et beta
+          if (velocityLabels["v0Label"]) velocityLabels["v0Label"].visible = false;
+          if (velocityLabels["alphaLabel"]) velocityLabels["alphaLabel"].visible = false;
+          if (velocityLabels["betaLabel"]) velocityLabels["betaLabel"].visible = false;
+          // Cacher les arcs
+          if (alphaArc) alphaArc.visible = false;
+          if (betaArc) betaArc.visible = false;
+          if (betaProjection) betaProjection.visible = false;
+          return;
+        }
+
+        const alphaRad = toRad(angleDeg);
+        const betaRad = toRad(state.outOfPlaneAngleDeg || 0);
+        const visualScale = 0.3;
+        const startPoint = new THREE.Vector3(0, state.h, 0);
+
+        // Composante dans le plan (x-y) selon angle α
+        const v_xy = state.v0 * Math.cos(betaRad);
+        // Composante z selon angle β
+        const v_z = state.v0 * Math.sin(betaRad);
+
+        // Direction complète en 3D
+        const direction = new THREE.Vector3(
+          v_xy * Math.cos(alphaRad),
+          v_xy * Math.sin(alphaRad),
+          v_z
+        ).normalize();
+
+        const length = state.v0 * visualScale;
+
+        v0Vector.setDirection(direction);
+        v0Vector.position.copy(startPoint);
+        v0Vector.setLength(length, 0.5, 0.2);
+        (v0Vector.line.material).color.set(color);
+        (v0Vector.cone.material).color.set(color);
+        v0Vector.visible = true;
+
+        const labelColor = color === 0x4facfe ? "#4facfe" : (color === 0xff0000 ? "#ff0000" : "#0000ff");
+
+        // Repositionner le label v0 au milieu du vecteur (aligné le long du vecteur)
+        const v0MidPoint = startPoint.clone().add(direction.clone().multiplyScalar(length * 0.5));
+        // Positionner le label perpendiculairement au vecteur pour qu'il soit lisible
+        const perpDir = new THREE.Vector3(-direction.y, direction.x, 0).normalize();
+        updateLabel("v0Label", `v₀=${state.v0.toFixed(2)} m/s`, v0MidPoint.clone().add(perpDir.clone().multiplyScalar(0.8)), labelColor);
+
+        // Créer l'arc pour alpha (dans le plan XY)
+        const arcRadius = length * 0.4;
+        if (!alphaArc) {
+          alphaArc = createArc(0, alphaRad, arcRadius, color, 'xy');
+          alphaArc.position.copy(startPoint);
+          scene.add(alphaArc);
+        } else {
+          // Mettre à jour l'arc
+          scene.remove(alphaArc);
+          alphaArc = createArc(0, alphaRad, arcRadius, color, 'xy');
+          alphaArc.position.copy(startPoint);
+          scene.add(alphaArc);
+        }
+        alphaArc.visible = true;
+
+        // Créer l'arc pour beta (dans le plan XZ)
+        if (!betaArc) {
+          betaArc = createArc(0, betaRad, arcRadius, color, 'xz');
+          betaArc.position.copy(startPoint);
+          scene.add(betaArc);
+        } else {
+          scene.remove(betaArc);
+          betaArc = createArc(0, betaRad, arcRadius, color, 'xz');
+          betaArc.position.copy(startPoint);
+          scene.add(betaArc);
+        }
+        betaArc.visible = true;
+
+        // Créer la projection du vecteur v0 sur le plan XZ
+        const projectionDir = new THREE.Vector3(
+          Math.cos(alphaRad) * Math.cos(betaRad),
+          0,
+          Math.sin(betaRad)
+        ).normalize();
+        if (!betaProjection) {
+          const projPoints = [
+            new THREE.Vector3(0, state.h, 0),
+            projectionDir.clone().multiplyScalar(length).add(new THREE.Vector3(0, state.h, 0))
+          ];
+          const projGeometry = new THREE.BufferGeometry().setFromPoints(projPoints);
+          const projMaterial = new THREE.LineDashedMaterial({ color: color, dashSize: 0.2, gapSize: 0.1 });
+          betaProjection = new THREE.Line(projGeometry, projMaterial);
+          betaProjection.computeLineDistances();
+          scene.add(betaProjection);
+        } else {
+          const projPoints = [
+            new THREE.Vector3(0, state.h, 0),
+            projectionDir.clone().multiplyScalar(length).add(new THREE.Vector3(0, state.h, 0))
+          ];
+          betaProjection.geometry.setFromPoints(projPoints);
+          betaProjection.computeLineDistances();
+        }
+        betaProjection.visible = true;
+
+        // Ajouter des labels pour alpha et beta
+        const alphaLabelPos = startPoint.clone().add(new THREE.Vector3(arcRadius * 0.7, arcRadius * 0.7, 0));
+        updateLabel("alphaLabel", `α=${angleDeg.toFixed(1)}°`, alphaLabelPos, labelColor);
+
+        const betaLabelPos = startPoint.clone().add(new THREE.Vector3(arcRadius * 0.7, 0, arcRadius * 0.7));
+        const betaDeg = state.outOfPlaneAngleDeg || 0;
+        updateLabel("betaLabel", `β=${betaDeg.toFixed(1)}°`, betaLabelPos, labelColor);
+      }
+
+      function draw() {
+        // controls.update(); // Supprimé, géré par animationLoop
+        // renderer.render(scene, camera); // Supprimé, géré par animationLoop
+
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        const simColor = isDark ? "#4facfe" : "blue";
+        const simVectorColor = isDark ? "rgba(79, 172, 254, 0.8)" : "rgba(0, 0, 255, 0.7)";
+        const simDashColor = isDark ? "rgba(79, 172, 254, 0.5)" : "rgba(0,0,255,0.45)";
+
+        const drawTargetMarker = (x, y, z) => {
+          if (targetMesh) {
+            targetMesh.position.set(x, y + 1, z); // Utiliser la coordonnée z
+            targetMesh.visible = true;
+          }
+        };
+
+        if (state.mode === "target") {
+          drawTargetMarker(state.target.x, state.target.y, state.target.z);
+          if (impactPointMesh) impactPointMesh.visible = false;
+          } else {
+          if (targetMesh) targetMesh.visible = false;
+          if (state.dureeVol > 0 && impactPointMesh) {
+            impactPointMesh.position.set(state.porteeX, state.hArrivee, state.vz0 ? state.vz0 * state.dureeVol : 0);
+            impactPointMesh.visible = true;
+          } else if (impactPointMesh) {
+            impactPointMesh.visible = false;
+          }
+        }
+
+        // Ne dessiner les trajectoires que si la simulation n'est pas en pause (ou si le mode cible est actif)
+        if (!state.isPaused || state.mode === "target") {
+          // Logique de dessin des trajectoires Three.js doit être ici
+        }
+      }
+      function genererEquationParabole(angleDeg) {
+        const { v0, g, h } = state;
+        if (v0 <= 0 || g <= 0) return "Paramètres invalides pour l'équation.";
+        const alphaRad = toRad(angleDeg);
+        const cosAlpha = Math.cos(alphaRad);
+        if (cosAlpha === 0) return `Tir vertical (non une parabole en y(x))`;
+        const a = -g / (2 * v0 * v0 * cosAlpha * cosAlpha);
+        const b = Math.tan(alphaRad);
+        const c = h;
+        let equation = `<i>y(x)</i> = ${a.toFixed(3)} ∙ <i>x</i>²`;
+        equation += (b >= 0 ? " + " : " - ") + `${Math.abs(b).toFixed(3)} ∙ <i>x</i>`;
+        equation += (c >= 0 ? " + " : " - ") + `${Math.abs(c).toFixed(2)}`;
+        return equation;
+      }
+
+      function updateResultsText(dynamicHTML = "") {
+        const fullHTML =
+          state.dureeVol > 0
+            ? state.staticResultsHTML + `<div class="dynamic-info">${dynamicHTML}</div>`
+            : "<b>Trajectoire impossible.</b><br>Essayez d'augmenter la vitesse ou de baisser la hauteur d'arrivée.";
+        if (resultsDisplay) resultsDisplay.innerHTML = fullHTML;
+        if (resultsDisplayDesktop) resultsDisplayDesktop.innerHTML = fullHTML;
+      }
+
+      function updateTargetModeDisplays() {
+        let resultsHTML = `<b>Paramètres du tir :</b>
+                   <ul>
+                       <li>Cible (X, Y, Z) : <b>(${state.target.x.toFixed(1)} m, ${state.target.y.toFixed(1)} m, ${state.target.z.toFixed(1)} m)</b></li>
+                       <li>Vitesse initiale (v₀) : <b>${state.v0.toFixed(1)} m/s</b></li>
+                       <li>Hauteur de départ (h) : <b>${state.h.toFixed(1)} m</b></li>
+                   </ul>`;
+        let equationHTML = "";
+
+        if (state.solutions.length > 0) {
+          resultsHTML += `<b>Résultats Clés :</b><ul>`;
+          const c1 = calculerCaracteristiques(
+            state.v0,
+            toRad(state.solutions[0]),
+            state.h,
+            state.g,
+            state.m,
+            state.target.y
+          );
+          resultsHTML += `<li>Tir 1 (Rouge) : H. max <b>${c1.yMax.toFixed(2)} m</b> (à x=${c1.xSommet.toFixed(
+            2
+          )}m)</li>`;
+          if (state.solutions.length === 2) {
+            const c2 = calculerCaracteristiques(
+              state.v0,
+              toRad(state.solutions[1]),
+              state.h,
+              state.g,
+              state.m,
+              state.target.y
+            );
+            resultsHTML += `<li>Tir 2 (Violet) : H. max <b>${c2.yMax.toFixed(2)} m</b> (à x=${c2.xSommet.toFixed(
+              2
+            )}m)</li>`;
+          }
+          resultsHTML += `</ul>`;
+
+          equationHTML = `<b>Équations des trajectoires :</b>`;
+          equationHTML += `<div style="color: red; margin-top: 5px; font-size: 0.9em;"><b>Tir ${state.solutions[0].toFixed(
+            2
+          )}° :</b><br>${genererEquationParabole(state.solutions[0])}</div>`;
+          if (state.solutions.length === 2)
+            equationHTML += `<div style="color: purple; margin-top: 8px; font-size: 0.9em;"><b>Tir ${state.solutions[1].toFixed(
+              2
+            )}° :</b><br>${genererEquationParabole(state.solutions[1])}</div>`;
+        } else {
+          equationHTML = "Aucune solution trouvée pour les paramètres actuels.";
+        }
+
+        if (resultsDisplay) resultsDisplay.innerHTML = resultsHTML;
+        if (resultsDisplayDesktop) resultsDisplayDesktop.innerHTML = resultsHTML; // Correction : Utilise resultsHTML
+        if (equationDisplay) equationDisplay.innerHTML = equationHTML;
+        if (equationDisplayDesktop) equationDisplayDesktop.innerHTML = equationHTML;
+      }
+
+      function updateEquationDisplay() {
+        let equationHTML = "";
+        if (state.isResistanceActive) {
+          const modelText = state.dragModel === "quadratic" ? "quadratique (f ~ v²)" : "linéaire (f ~ v)";
+          equationHTML = `Équations non disponibles<br>avec la résistance de l'air (${modelText}).`;
+        } else {
+          const { v0, alpha, g, h } = state;
+          if (v0 > 0 && alpha !== 90) {
+            const alphaRad = toRad(alpha);
+            const tanAlpha = Math.tan(alphaRad);
+            const cosAlpha = Math.cos(alphaRad);
+            const gTerm = g / (2 * v0 ** 2 * cosAlpha ** 2);
+            equationHTML = `<b>Équation de la trajectoire :</b><br>`;
+            equationHTML += `<i>y(x)</i> = -${gTerm.toFixed(4)} ∙ <i>x</i><sup>2</sup>`;
+            equationHTML += (tanAlpha >= 0 ? " + " : " - ") + `${Math.abs(tanAlpha).toFixed(3)} ∙ <i>x</i>`;
+            equationHTML += (h >= 0 ? " + " : " - ") + `${Math.abs(h).toFixed(2)}`;
+
+            const v0x = v0 * cosAlpha;
+            const v0y = v0 * Math.sin(alphaRad);
+            equationHTML += `<div style="margin-top: 12px;"><b>Équations de la vitesse (v⃗) :</b>`;
+            equationHTML += `<br><i>vₓ(t)</i> = ${v0x.toFixed(2)} m/s`;
+            equationHTML += `<br><i>vᵧ(t)</i> = -${g.toFixed(2)} ∙ <i>t</i> + ${v0y.toFixed(2)}`;
+            equationHTML += `</div>`;
+
+            equationHTML += `<div style="margin-top: 12px;"><b>Équations de l'accélération (a⃗) :</b>`;
+            equationHTML += `<br><i>aₓ(t)</i> = 0 m/s²`;
+            equationHTML += `<br><i>aᵧ(t)</i> = -${g.toFixed(2)} m/s²`;
+            equationHTML += `</div>`;
+          } else if (alpha === 90) {
+            equationHTML = "Tir vertical, équations horaires plus adaptées.";
+          } else {
+            equationHTML = "Paramètres invalides pour le calcul des équations.";
+          }
+        }
+        if (equationDisplay) equationDisplay.innerHTML = equationHTML;
+        if (equationDisplayDesktop) equationDisplayDesktop.innerHTML = equationHTML;
+      }
+
+      function update() {
+        if (state.isUpdating) return;
+        state.isUpdating = true;
+        cancelAnimationFrame(state.animationId);
+        try {
+          // Afficher la trajectoire seulement si la simulation a démarré, ou toujours en mode Cible
+          // Si on modifie les paramètres en mode simulation alors que c'est en pause, on cache la trajectoire
+          if (state.mode === "simulation" && state.isPaused) {
+            state.simulationStarted = false;
+          }
+          state.showFinalTrajectory = state.mode === "target" || state.simulationStarted;
+          // Si la trajectoire ne doit pas être affichée, cacher les lignes tout de suite
+          if (!state.showFinalTrajectory) {
+            try {
+              if (mainTrajectoryLine) { mainTrajectoryLine.visible = false; mainTrajectoryLine.geometry.setFromPoints([]); }
+              if (idealTrajectoryLine) { idealTrajectoryLine.visible = false; idealTrajectoryLine.geometry.setFromPoints([]); }
+              if (trajectory1Line) { trajectory1Line.visible = false; trajectory1Line.geometry.setFromPoints([]); }
+              if (trajectory2Line) { trajectory2Line.visible = false; trajectory2Line.geometry.setFromPoints([]); }
+            } catch (e) {
+              // silencieux si non initialisé
+            }
+          }
+          ["h", "hArrivee", "g", "m", "radius", "dragCoeff"].forEach((key) => {
+            if (sliders[key]) state[key] = parseFloat(sliders[key].value);
+          });
+          if (sliders.speed) {
+            state.speedFactor = parseFloat(sliders.speed.value) * SPEED_SCALE;
+            if (values.speed) values.speed.textContent = `${parseFloat(sliders.speed.value).toFixed(2)}x`;
+          }
+          state.isResistanceActive = resistanceCheckbox.checked;
+
+          const graphTitle = document.getElementById("graph-title");
+
+          if (state.isResistanceActive) {
+            const modelText = state.dragModel === "quadratic" ? "(f ~ v²)" : "(f ~ v)";
+            graphTitle.innerHTML = `Trajectoire du projectile<br>
+                                    <span style="font-weight:normal; font-size:0.9em;">(avec frottement air ${modelText})</span>`;
+          } else {
+            graphTitle.innerHTML = `Trajectoire du projectile<br>
+                                    <span style="font-weight:normal; font-size:0.9em;">(sans frottement air)</span>`;
+          }
+
+          if (state.mode === "simulation") {
+            state.v0 = parseFloat(sliders.v0.value);
+            state.alpha = parseFloat(sliders.alpha.value);
+            // Lecture de l'angle out-of-plane et calcul de vz0 en mode simulation
+            if (sliders.outOfPlane) {
+              state.outOfPlaneAngleDeg = parseFloat(sliders.outOfPlane.value || 0);
+            }
+            state.vz0 = (state.v0 || 0) * Math.sin(toRad(state.outOfPlaneAngleDeg || 0));
+            // En mode simulation, la caméra suit le projectile ou regarde le point d'impact initial
+            controls.target.set(state.porteeX / 2, state.yMax / 2, 0); // Peut être ajusté pour une meilleure vue
+          } else {
+            state.v0 = parseFloat(sliders.v0Target.value);
+            state.target.x = parseFloat(inputs.targetX.value);
+            state.target.y = parseFloat(inputs.targetY.value);
+            state.h = parseFloat(sliders.h.value);
+          }
+
+          if (state.mode === "simulation") {
+            state.isDualTrajectoryMode = false;
+            const alphaRad = toRad(state.alpha);
+            let characteristics;
+            if (state.isResistanceActive) {
+              characteristics = calculerTrajectoireAvecFrottement(
+                state.v0,
+                alphaRad,
+                state.h,
+                state.g,
+                state.m,
+                state.hArrivee,
+                state.radius,
+                state.dragCoeff,
+                state.airDensity,
+                state.dragModel
+              );
+              const idealCharacteristics = calculerCaracteristiques(
+                state.v0,
+                alphaRad,
+                state.h,
+                state.g,
+                state.m,
+                state.hArrivee,
+                state.vz0
+              );
+              state.idealTrajectoire = idealCharacteristics.trajectoire;
+            } else {
+              characteristics = calculerCaracteristiques(state.v0, alphaRad, state.h, state.g, state.m, state.hArrivee, state.vz0);
+              state.enveloppe = calculerEnveloppe(state.v0, state.h, state.g);
+              state.idealTrajectoire = [];
+            }
+            Object.assign(state, characteristics);
+
+            state.positions = state.trajectoire.map((point, index) => ({
+              x: point.x,
+              y: point.y,
+              z: 0, // Assume 2D plane for now
+              t: index * DT,
+            }));
+            state.staticResultsHTML = `<b>Caractéristiques du Vol :</b><ul><li>Hauteur max : <b>${state.yMax.toFixed(
+              2
+            )} m</b> (à x=${state.xSommet.toFixed(2)}m)</li><li>Portée : <b>${state.porteeX.toFixed(
+              2
+            )} m</b></li><li>Durée du vol : <b>${state.dureeVol.toFixed(
+              2
+            )} s</b></li><li>Vitesse d'impact : <b>${state.vImpact.toFixed(
+              2
+            )} m/s</b></li></ul><div id="energy-display"><ul><li>Énergie Initiale : <b>${state.eInitiale.toFixed(
+              1
+            )} J</b></li><li>Énergie d'impact (Ec) : <b>${state.eImpact.toFixed(1)} J</b></li>${
+              state.isResistanceActive
+                ? `<li>Perte par frottement: <b>${(state.eInitiale - state.eImpact).toFixed(1)} J</b></li>`
+                : ""
+            }</ul></div>`;
+            updateResultsText();
+            updateEquationDisplay();
+          }
+
+          Object.keys(inputs).forEach((key) => {
+            if (state[key] !== undefined && inputs[key]) {
+              const inputElem = inputs[key];
+              let precision = 0;
+              if (inputElem.step && inputElem.step.includes(".")) precision = inputElem.step.split(".")[1].length;
+              if (document.activeElement !== inputElem) inputElem.value = state[key].toFixed(precision);
+            }
+          });
+
+          if (values.speed) values.speed.textContent = `${state.speedFactor.toFixed(1)}x`;
+          const xMaxTarget = state.mode === "target" ? state.target.x : state.porteeX;
+          const yMaxTarget = state.mode === "target" ? state.target.y : state.hArrivee;
+          let xMaxEnv = !state.isResistanceActive && state.enveloppe.x.length > 1 ? state.enveloppe.x.slice(-1)[0] : 0;
+          state.xMaxGraph = Math.max(
+            10,
+            state.porteeX,
+            xMaxEnv,
+            xMaxTarget * 1.1,
+            state.trajectoire2 && state.trajectoire2.length > 0 ? state.trajectoire2.slice(-1)[0].x * 1.1 : 0
+          );
+          state.yMaxGraph = Math.max(
+            10,
+            state.yMax,
+            state.hArrivee,
+            !state.isResistanceActive && state.enveloppe.y.length > 1 ? Math.max(...state.enveloppe.y) : state.h,
+            yMaxTarget * 1.1
+          );
+          // state.currentFrameIndex = 0;
+          // state.isPaused = true;
+          // state.animationId = null;
+          // if (pauseButton) pauseButton.textContent = "Go";
+          // if (mobileGoButton) mobileGoButton.textContent = "Go";
+          // if (pauseButton) pauseButton.classList.remove("btn-pause");
+          // if (pauseButton) pauseButton.classList.add("btn-go");
+          // Supprimer l'appel à draw() ici car la boucle d'animation s'en charge
+        } finally {
+          state.isUpdating = false;
+
+          const updateThreeJsLine = (line, trajectory, color) => {
+            const points = trajectory.map(p => new THREE.Vector3(p.x, p.y, p.z || 0));
+            line.geometry.setFromPoints(points);
+            if (line.material.color) (line.material).color.set(color);
+            line.visible = trajectory.length > 1;
+          };
+
+          const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+          // Mettre à jour les trajectoires Three.js toujours en mode target, et en mode simulation même en pause
+          if (state.mode === "target" || !state.isPaused) {
+            if (state.mode === "simulation") {
+              updateThreeJsLine(mainTrajectoryLine, state.trajectoire, isDark ? 0x4facfe : 0x0000ff);
+              updateThreeJsLine(idealTrajectoryLine, state.idealTrajectoire, 0xcccccc);
+              mainTrajectoryLine.visible = state.showFinalTrajectory;
+              idealTrajectoryLine.visible = state.isResistanceActive && state.showIdealTrajectory;
+              trajectory1Line.visible = false;
+              trajectory2Line.visible = false;
+            } else if (state.mode === "target") {
+              updateThreeJsLine(trajectory1Line, state.trajectoire1, 0xff0000);
+              updateThreeJsLine(trajectory2Line, state.trajectoire2, 0x800080);
+              // Afficher seulement si la simulation cible est lancée (showFinalTrajectory)
+              const canShow = state.showFinalTrajectory && state.trajectoire1.length > 1;
+              trajectory1Line.visible = canShow;
+              trajectory2Line.visible = canShow && state.isDualTrajectoryMode && state.trajectoire2.length > 1;
+              mainTrajectoryLine.visible = false;
+              idealTrajectoryLine.visible = false;
+            }
+          } else if (state.mode === "simulation" && state.isPaused) {
+            // Afficher les trajectoires en mode simulation même en pause
+            updateThreeJsLine(mainTrajectoryLine, state.trajectoire, isDark ? 0x4facfe : 0x0000ff);
+            updateThreeJsLine(idealTrajectoryLine, state.idealTrajectoire, 0xcccccc);
+            mainTrajectoryLine.visible = state.showFinalTrajectory;
+            idealTrajectoryLine.visible = state.isResistanceActive && state.showIdealTrajectory;
+            trajectory1Line.visible = false;
+            trajectory2Line.visible = false;
+          } else {
+            // Cacher les trajectoires si la simulation est en pause au démarrage
+            mainTrajectoryLine.visible = false;
+            idealTrajectoryLine.visible = false;
+            trajectory1Line.visible = false;
+            trajectory2Line.visible = false;
+          }
+
+          // Mettre à jour le vecteur de tir en mode simulation
+          if (state.mode === "simulation") {
+            const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+            drawV0Vector(state.alpha, isDark ? 0x4facfe : 0x0000ff);
+          }
+        }
+      }
+
+      function animationLoop() {
+        // Mettre à jour les contrôles de la caméra et rendre la scène à chaque frame
+        controls.update();
+        renderer.render(scene, camera);
+
+        // Demander la prochaine frame d'animation pour assurer une boucle continue
+        requestAnimationFrame(animationLoop);
+
+        let currentTrajectory = [];
+        let currentAlpha = 0;
+
+        if (state.mode === "simulation") {
+          currentTrajectory = state.trajectoire;
+          currentAlpha = state.alpha;
+        } else if (state.mode === "target") {
+          currentTrajectory = state.trajectoire1;
+          currentAlpha = state.solutions.length > 0 ? state.solutions[0] : 0;
+        }
+
+        // Afficher les vecteurs et points d'impact même en pause
+        let frameIndex = Math.floor(state.currentFrameIndex);
+        drawInstantaneousVelocityVectors(state, currentTrajectory, frameIndex);
+
+        // Masquer le cone du v0Vector en mode Cible
+        if (state.mode === "target") {
+          v0Vector.cone.visible = false;
+        } else {
+          v0Vector.cone.visible = true;
+        }
+        drawV0Vector(currentAlpha, (state.mode === "simulation" || state.solutions.length === 0) ? (document.documentElement.getAttribute("data-theme") === "dark" ? 0x4facfe : 0x0000ff) : 0xff0000);
+
+        // Ne pas continuer la logique de simulation si l'animation est en pause
+        if (state.isPaused) {
+          // console.log("animationLoop: Paused. Skipping simulation logic.");
+          return;
+        }
+
+        // console.log("animationLoop: Running. Current frame:", state.currentFrameIndex);
+
+        let maxFrames = state.isDualTrajectoryMode
+          ? Math.max(state.trajectoire1.length, state.trajectoire2.length)
+          : state.trajectoire.length;
+
+        if (state.currentFrameIndex >= maxFrames - 1 && maxFrames > 0) {
+          state.currentFrameIndex = maxFrames - 1;
+          cancelAnimationFrame(state.animationId);
+          state.animationId = null;
+          state.isPaused = true;
+          if (pauseButton) pauseButton.textContent = "Go";
+          if (mobileGoButton) mobileGoButton.textContent = "Go";
+          if (pauseButton) pauseButton.classList.remove("btn-pause");
+          if (pauseButton) pauseButton.classList.add("btn-go");
+
+          if (state.mode === "target") {
+            updateTargetModeDisplays();
+          } else {
+            updateResultsText("✓ Terminé");
+          }
+
+          console.log("animationLoop: Animation terminée.");
+          return;
+        }
+
+        state.currentFrameIndex += state.speedFactor;
+
+        if (state.mode === "simulation") {
+          currentTrajectory = state.trajectoire;
+          currentAlpha = state.alpha;
+        } else if (state.mode === "target") {
+          currentTrajectory = state.trajectoire1;
+          currentAlpha = state.solutions.length > 0 ? state.solutions[0] : 0;
+        }
+
+        frameIndex = Math.floor(state.currentFrameIndex);
+          const t = frameIndex * DT;
+
+        if (currentTrajectory.length > 0) {
+          const frame = currentTrajectory[frameIndex];
+
+          if (frame) {
+            // En mode cible, force un z constant (cible) si absent
+            const z = state.mode === "target"
+              ? (frame.z !== undefined ? frame.z : state.target.z || 0)
+              : (frame.z || 0);
+            projectileMesh.position.set(frame.x, frame.y, z);
+            const Ep = state.m * state.g * frame.y;
+            const Ec_approx = state.eInitiale - Ep > 0 ? state.eInitiale - Ep : 0;
+
+            let dynamicText = `<b>t = ${t.toFixed(2)}s</b>, x = ${frame.x.toFixed(1)}m, y = ${frame.y.toFixed(1)}m`;
+
+            if (state.mode === "simulation") {
+              dynamicText += `<div id="energy-display"><ul>` +
+                `<li>Ec : <b>~${Ec_approx.toFixed(1)} J</b></li>` +
+                `<li>Ep : <b>${Ep.toFixed(1)} J</b></li>` +
+                             `</ul></div>`;
+            }
+            updateResultsText(dynamicText);
+          }
+
+          // Mise à jour des lignes (et du marqueur) selon le mode
+          if (state.mode === "simulation") {
+            const points = currentTrajectory.slice(0, frameIndex + 1).map(p => new THREE.Vector3(p.x, p.y, p.z || 0));
+            mainTrajectoryLine.geometry.setFromPoints(points);
+            mainTrajectoryLine.visible = true;
+            trajectory1Line.visible = false;
+            trajectory2Line.visible = false;
+            if (trajectory1Marker) trajectory1Marker.visible = false;
+            if (trajectory2Marker) trajectory2Marker.visible = false;
+          } else {
+            // mode cible : on met à jour les deux trajectoires et on ne touche pas à mainTrajectoryLine
+          const points1 = state.trajectoire1
+            .slice(0, frameIndex + 1)
+            .map(p => new THREE.Vector3(p.x, p.y, p.z !== undefined ? p.z : (state.target.z || 0)));
+            trajectory1Line.geometry.setFromPoints(points1);
+            trajectory1Line.visible = state.showFinalTrajectory && state.trajectoire1.length > 1;
+
+            if (state.isDualTrajectoryMode && state.trajectoire2.length > 1) {
+              const points2 = state.trajectoire2
+                .slice(0, frameIndex + 1)
+                .map(p => new THREE.Vector3(p.x, p.y, p.z !== undefined ? p.z : (state.target.z || 0)));
+              trajectory2Line.geometry.setFromPoints(points2);
+              trajectory2Line.visible = state.showFinalTrajectory;
+            } else {
+              trajectory2Line.visible = false;
+            }
+            // positionner des marqueurs rouges/violets, en clampant l'index pour éviter les positions undefined
+            const clampIndex = (arr) => {
+              if (!arr || !arr.length) return null;
+              const idx = Math.min(Math.max(0, frameIndex), arr.length - 1);
+              return arr[idx];
+            };
+
+            if (trajectory1Marker) {
+              const p = clampIndex(state.trajectoire1);
+              if (p) {
+                const z = p.z !== undefined ? p.z : (state.target.z || 0);
+                trajectory1Marker.position.set(p.x, p.y, z);
+                trajectory1Marker.visible = state.showFinalTrajectory && state.trajectoire1.length > 0;
+              } else {
+                trajectory1Marker.visible = false;
+              }
+            }
+
+            if (trajectory2Marker) {
+              const p2 = clampIndex(state.trajectoire2);
+              if (p2 && state.isDualTrajectoryMode && state.trajectoire2.length > 1) {
+                const z2 = p2.z !== undefined ? p2.z : (state.target.z || 0);
+                trajectory2Marker.position.set(p2.x, p2.y, z2);
+                trajectory2Marker.visible = state.showFinalTrajectory && state.trajectoire2.length > 1;
+              } else {
+                trajectory2Marker.visible = false;
+              }
+            }
+            mainTrajectoryLine.visible = false;
+            idealTrajectoryLine.visible = false;
+          }
+        } else {
+          projectileMesh.position.set(0, state.h, state.vz0 ? state.vz0 * state.dureeVol : 0);
+          mainTrajectoryLine.visible = false;
+          if (trajectory1Marker) trajectory1Marker.visible = false;
+          if (trajectory2Marker) trajectory2Marker.visible = false;
+        }
+      }
+
+      function calculateTargetSolutions() {
+        console.log("calculateTargetSolutions: Start");
+        if (solutionsDisplay) clearSolutions();
+        state.showFinalTrajectory = false;
+        state.isDualTrajectoryMode = false;
+        state.currentFrameIndex = 0;
+        const v0 = parseFloat(sliders.v0Target.value);
+        const g = parseFloat(sliders.g.value);
+        const h = parseFloat(sliders.h.value);
+        state.v0 = v0;
+        state.h = h;
+        state.target.x = parseFloat(inputs.targetX.value);
+        state.target.y = parseFloat(inputs.targetY.value);
+        state.target.z = parseFloat(inputs.targetZ.value); // Mettre à jour la coordonnée z de la cible
+        // Compute vz0 from out-of-plane angle in target mode
+        if (sliders.outOfPlane) {
+          state.outOfPlaneAngleDeg = parseFloat(sliders.outOfPlane.value || 0);
+        }
+        state.vz0 = (state.v0 || 0) * Math.sin(toRad(state.outOfPlaneAngleDeg || 0));
+        const { target } = state;
+
+        if (target.x <= 0) {
+          if (solutionsDisplay) solutionsDisplay.innerHTML = `<p style="color:var(--reset-color);">La Cible X doit être > 0.</p>`;
+          updateTargetModeDisplays();
+          draw();
+          console.log("calculateTargetSolutions: Cible X <= 0, returning.");
+          return;
+        }
+
+        const A = (g * target.x ** 2) / (2 * v0 ** 2);
+        const B = -target.x;
+        const C = target.y - h + A;
+        const delta = B ** 2 - 4 * A * C;
+
+        if (delta < 0) {
+          const v0_min = calculerVitesseMinimale(g, target.x, target.y, h);
+          let message = `<p style-top: 5px;">Vitesse minimale requise : <br><b>~${v0_min.toFixed(2)} m/s</b></p>`;
+          if (v0_min !== null)
+            message += `<p style-top: 5px;">Vitesse minimale requise : <br><b>~${v0_min.toFixed(2)} m/s</b></p>`;
+          solutionsDisplay.innerHTML = message;
+          state.trajectoire = [];
+          state.trajectoire1 = [];
+          state.trajectoire2 = [];
+          console.log("calculateTargetSolutions: Delta < 0, aucune solution.");
+        } else {
+          const T1 = (-B + Math.sqrt(delta)) / (2 * A);
+          const T2 = (-B - Math.sqrt(delta)) / (2 * A);
+          state.solutions = []; // Vider les solutions précédentes
+          [T1, T2].forEach((T) => {
+            const alpha = toDeg(Math.atan(T));
+            if (alpha >= -90 && alpha <= 90) state.solutions.push(alpha);
+          });
+          state.solutions.sort((a, b) => b - a);
+          console.log("calculateTargetSolutions: Solutions trouvées:", state.solutions);
+
+          // If target.z is set (non-zero), compute required vz0 to reach that z at impact time
+          if (target.z && target.z !== 0 && state.solutions.length > 0) {
+            // Use the first solution to compute required vz0
+            const angle = state.solutions[0];
+            const alphaRad = toRad(angle);
+            const cosAlpha = Math.cos(alphaRad);
+            if (cosAlpha > 1e-9) {
+              const flightTime = target.x / (v0 * cosAlpha);
+              // Required vz0 = target.z / flightTime
+              const required_vz0 = target.z / flightTime;
+              const required_beta_rad = Math.asin(Math.max(-1, Math.min(1, required_vz0 / v0)));
+              const required_beta_deg = toDeg(required_beta_rad);
+              console.log(`Target.z detected: flightTime=${flightTime.toFixed(2)}s, required_vz0=${required_vz0.toFixed(2)} m/s, required_beta=${required_beta_deg.toFixed(1)}°`);
+              // Update state directly and UI controls
+              state.vz0 = required_vz0;
+              state.outOfPlaneAngleDeg = required_beta_deg;
+              if (sliders.outOfPlane) sliders.outOfPlane.value = required_beta_deg;
+              if (inputs.outOfPlane) inputs.outOfPlane.value = required_beta_deg;
+            }
+          }
+
+          if (state.solutions.length === 0) {
+            if (solutionsDisplay) solutionsDisplay.innerHTML = `<p>Aucune solution valide.</p>`;
+          } else {
+            console.log("calculateTargetSolutions: Entering main solutions ELSE block. solutions.length:", state.solutions.length);
+            if (solutionsDisplay) solutionsDisplay.innerHTML = "";
+            const characteristics1 = calculerCaracteristiques(v0, toRad(state.solutions[0]), h, g, state.m, target.y, state.vz0);
+            console.log("calculateTargetSolutions: Characteristics 1 returned. Trajectoire length:", characteristics1.trajectoire.length);
+            let traj1 = characteristics1.trajectoire;
+            // console.log("calculateTargetSolutions: traj1 after initial assignment (from characteristics1):", traj1.length);
+            const targetIndex1 = traj1.findIndex((p) => p.x >= target.x);
+            // console.log("calculateTargetSolutions: targetIndex1:", targetIndex1, "for target.x:", target.x);
+            if (targetIndex1 !== -1) {
+              // console.log("calculateTargetSolutions: Modifying traj1 based on targetIndex1. Before slice length:", traj1.length);
+              traj1 = traj1.slice(0, targetIndex1 + 1);
+              const tAtTarget1 = targetIndex1 * DT;
+              traj1[traj1.length - 1] = { x: target.x, y: target.y, z: state.vz0 * tAtTarget1 };
+              // console.log("calculateTargetSolutions: traj1 after slice and target point update length:", traj1.length);
+            } else {
+              console.log("calculateTargetSolutions: targetIndex1 is -1, traj1 not sliced.");
+            }
+            // Recaler pour démarrer à l'origine (x=0,z=0) et interpoler z de 0 -> target.z le long du trajet
+            const mapTrajectory = (traj) => {
+              if (!traj.length) return [];
+              const offsetX = traj[0].x || 0;
+              const n = traj.length;
+              return traj.map((p, idx) => {
+                const progress = n > 1 ? idx / (n - 1) : 0;
+                return {
+                  ...p,
+                  x: p.x - offsetX,                // départ en x=0
+                  z: (state.target.z || 0) * progress, // z 0 -> target.z
+                };
+              });
+            };
+            const mapped1 = mapTrajectory(traj1);
+            state.trajectoire1 = mapped1;
+            console.log("calculateTargetSolutions: Trajectoire 1 final length (after assignment to state):", state.trajectoire1.length);
+
+            if (state.solutions.length === 2) {
+              state.isDualTrajectoryMode = true;
+              const characteristics2 = calculerCaracteristiques(v0, toRad(state.solutions[1]), h, g, state.m, target.y, state.vz0);
+              let traj2 = characteristics2.trajectoire;
+              const targetIndex2 = traj2.findIndex((p) => p.x >= target.x);
+              if (targetIndex2 !== -1) {
+                traj2 = traj2.slice(0, targetIndex2 + 1);
+                const tAtTarget2 = targetIndex2 * DT;
+                traj2[traj2.length - 1] = { x: target.x, y: target.y, z: state.target.z || 0 };
+              }
+              const mapped2 = mapTrajectory(traj2);
+              state.trajectoire2 = mapped2;
+              console.log("calculateTargetSolutions: Trajectoire 2:", state.trajectoire2);
+              const yMax = Math.max(characteristics1.yMax, characteristics2.yMax, target.y, h);
+              state.xMaxGraph = Math.max(10, target.x * 1.1);
+              state.yMaxGraph = Math.max(10, yMax * 1.1);
+            } else {
+              state.isDualTrajectoryMode = false;
+              state.xMaxGraph = Math.max(10, target.x * 1.1);
+              state.yMaxGraph = Math.max(10, characteristics1.yMax * 1.1, target.y * 1.1, h);
+            }
+          }
+        }
+        updateTargetModeDisplays();
+        draw();
+        drawV0Vector(state.solutions[0], document.documentElement.getAttribute("data-theme") === "dark" ? 0x4facfe : 0x0000ff);
+
+        console.log("calculateTargetSolutions: End. Trajectoire1 length:", state.trajectoire1.length, "isDualTrajectoryMode:", state.isDualTrajectoryMode);
+      }
+
+      function clearSolutions() {
+        if (solutionsDisplay) solutionsDisplay.innerHTML = "";
+        state.solutions = [];
+        state.trajectoire = [];
+        state.trajectoire1 = [];
+        state.trajectoire2 = [];
+        state.isDualTrajectoryMode = false;
+      }
+
+      function toggleAnimation() {
+        console.log("toggleAnimation: Before state.isPaused change. Current mode:", state.mode, "isPaused:", state.isPaused);
+        if (state.mode === "target" && state.solutions.length === 0) {
+          console.log("toggleAnimation: Mode target sans solution. Annulation.");
+          return;
+        }
+        if (state.mode === "simulation" && state.dureeVol <= 0) {
+          console.log("toggleAnimation: Mode simulation sans dureeVol. Annulation.");
+          return;
+        }
+
+        if (state.isPaused) {
+          let maxFrames = state.isDualTrajectoryMode
+            ? Math.max(state.trajectoire1.length, state.trajectoire2.length)
+            : state.trajectoire.length;
+          if (state.currentFrameIndex >= maxFrames - 1 && maxFrames > 0) state.currentFrameIndex = 0;
+          state.showFinalTrajectory = true;
+        }
+
+        state.isPaused = !state.isPaused;
+
+        // Marquer que la simulation a démarré quand on passe de pause à running
+        if (!state.isPaused) {
+          state.simulationStarted = true;
+          state.showFinalTrajectory = true; // autoriser l'affichage des lignes une fois lancée
+        }
+
+        console.log("toggleAnimation: After state.isPaused change. New isPaused:", state.isPaused);
+
+        if (state.isPaused) {
+          cancelAnimationFrame(state.animationId);
+          if (pauseButton) pauseButton.textContent = "Resume";
+          if (mobileGoButton) mobileGoButton.textContent = "Resume";
+          if (pauseButton) pauseButton.classList.remove("btn-pause");
+          if (pauseButton) pauseButton.classList.add("btn-go");
+          openPanel();
+        } else {
+          state.startTime = Date.now();
+          if (pauseButton) pauseButton.textContent = "Pause";
+          if (mobileGoButton) mobileGoButton.textContent = "Pause";
+          if (pauseButton) pauseButton.classList.remove("btn-go");
+          if (pauseButton) pauseButton.classList.add("btn-pause");
+          closePanel();
+          animationLoop();
+        }
+      }
+
+      function reset() {
+        clearSolutions();
+        sliders.v0.value = 20;
+        inputs.v0.value = 20;
+        sliders.alpha.value = 45;
+        inputs.alpha.value = 45;
+        sliders.outOfPlane.value = 0;
+        inputs.outOfPlane.value = 0;
+        sliders.h.value = 0;
+        inputs.h.value = 0;
+        sliders.hArrivee.value = 0;
+        inputs.hArrivee.value = 0;
+        sliders.g.value = 9.81;
+        inputs.g.value = 9.81;
+        sliders.m.value = 1.0;
+        inputs.m.value = 1.0;
+        sliders.speed.value = 1;
+        state.speedFactor = SPEED_SCALE;
+        if (values.speed) values.speed.textContent = "1.0x";
+        sliders.vectorScale.value = 0.3;
+        state.velocityVectorScale = 0.3;
+        if (values.vectorScale) values.vectorScale.textContent = "0.3";
+        sliders.v0Target.value = 20;
+        inputs.v0Target.value = 20;
+        inputs.targetX.value = 25;
+        state.target.x = 25;
+        inputs.targetY.value = 10;
+        state.target.y = 10;
+        inputs.targetZ.value = 0; // Ajout de l'initialisation pour Cible Z
+        if (sliders.targetZ) sliders.targetZ.value = 0; // recaler le slider Z
+        state.target.z = 0; // Ajout de l'initialisation pour Cible Z
+        if (enveloppeCheckbox) enveloppeCheckbox.checked = true;
+        if (resistanceCheckbox) resistanceCheckbox.checked = false;
+        state.isResistanceActive = resistanceCheckbox.checked;
+        document.getElementById("compareIdealCheckbox").checked = true;
+        state.showIdealTrajectory = true;
+        sliders.radius.value = 0.05;
+        inputs.radius.value = 0.05;
+        sliders.dragCoeff.value = 0.47;
+        inputs.dragCoeff.value = 0.47;
+        state.dragModel = "quadratic";
+        document.querySelector('input[name="dragModel"][value="quadratic"]').checked = true;
+        state.positions = [];
+        document.querySelector('input[name="projectileShape"][value="sphere"]').checked = true;
+        state.projectileShape = "sphere";
+
+        const dragCoeffControl = document.getElementById("dragCoeff-control");
+        dragCoeffControl.classList.add("disabled-by-shape");
+        inputs.dragCoeff.disabled = true;
+        sliders.dragCoeff.disabled = true;
+        state.dragCoeff = DRAG_COEFF_PRESETS.sphere;
+        inputs.dragCoeff.value = state.dragCoeff.toFixed(2);
+        sliders.dragCoeff.value = state.dragCoeff;
+
+        // Initialiser l'angle hors-plan et vz0
+        state.outOfPlaneAngleDeg = 0;
+        state.vz0 = 0;
+        // Reset simulation started flag and hide trajectory visuals
+        state.simulationStarted = false;
+        state.showFinalTrajectory = false;
+        // Hide Three.js trajectory lines and impact/target meshes if present
+        try {
+          if (mainTrajectoryLine) { mainTrajectoryLine.visible = false; mainTrajectoryLine.geometry.setFromPoints([]); }
+          if (idealTrajectoryLine) { idealTrajectoryLine.visible = false; idealTrajectoryLine.geometry.setFromPoints([]); }
+          if (trajectory1Line) { trajectory1Line.visible = false; trajectory1Line.geometry.setFromPoints([]); }
+          if (trajectory2Line) { trajectory2Line.visible = false; trajectory2Line.geometry.setFromPoints([]); }
+          if (impactPointMesh) impactPointMesh.visible = false;
+          if (targetMesh) targetMesh.visible = false;
+          if (projectileMesh) projectileMesh.position.set(0, state.h, 0);
+        } catch (e) {
+          // meshes may not be initialized yet
+          console.log('reset: some meshes not ready yet', e);
+        }
+
+        const currentMode = state.mode;
+        setMode(currentMode);
+      }
+
+      function setMode(mode) {
+        clearSolutions();
+        state.showFinalTrajectory = false;
+        state.mode = mode;
+        document.querySelector(`input[name="mode"][value="${mode}"]`).checked = true;
+
+        if (simulationControls) simulationControls.classList.toggle("hidden", mode === "target");
+        if (targetControls) targetControls.classList.toggle("hidden", mode === "simulation");
+        if (enveloppeCheckboxContainer) enveloppeCheckboxContainer.classList.toggle("hidden", mode === "target");
+
+        const resistanceCheckboxContainer = document.getElementById("resistanceCheckbox").closest(".control-group");
+
+        if (mode === "target") {
+          if (hArriveeControl) hArriveeControl.classList.add("hidden");
+          if (massControl) massControl.classList.add("hidden");
+          if (resistanceCheckboxContainer) resistanceCheckboxContainer.classList.add("hidden");
+          if (resistanceParamsDiv) resistanceParamsDiv.classList.add("hidden");
+          calculateTargetSolutions();
+        } else {
+          if (hArriveeControl) hArriveeControl.classList.remove("hidden");
+          if (massControl) massControl.classList.remove("hidden");
+          if (resistanceCheckboxContainer) resistanceCheckboxContainer.classList.remove("hidden");
+          if (resistanceParamsDiv) resistanceParamsDiv.classList.toggle("hidden", !resistanceCheckbox.checked);
+          update();
+        }
+      }
+
+      function getMaxPointFromTrajectory(trajectoire) {
+        if (!trajectoire || trajectoire.length === 0) return null;
+        let maxIdx = 0;
+        for (let i = 1; i < trajectoire.length; i++) if (trajectoire[i].y > trajectoire[maxIdx].y) maxIdx = i;
+        return trajectoire[maxIdx];
+      }
+
+      function drawDashedCrossAtWorld(x, y, color = "rgba(0,0,0,0.4)") {
+      }
+
+      function setupEventListeners() {
+        sliders = {
+          v0: document.getElementById("v0Slider"),
+          alpha: document.getElementById("alphaSlider"),
+          h: document.getElementById("hSlider"),
+          hArrivee: document.getElementById("hArriveeSlider"),
+          g: document.getElementById("gSlider"),
+          m: document.getElementById("mSlider"),
+          speed: document.getElementById("speedSlider"),
+          vectorScale: document.getElementById("vectorScaleSlider"),
+          v0Target: document.getElementById("v0TargetSlider"),
+          targetX: document.getElementById("targetXSlider"),
+          targetY: document.getElementById("targetYSlider"),
+          targetZ: document.getElementById("targetZSlider"),
+          outOfPlane: document.getElementById("outOfPlaneSlider"),
+          radius: document.getElementById("radiusSlider"),
+          dragCoeff: document.getElementById("dragCoeffSlider"),
+        };
+
+        inputs = {
+          v0: document.getElementById("v0Input"),
+          alpha: document.getElementById("alphaInput"),
+          h: document.getElementById("hInput"),
+          hArrivee: document.getElementById("hArriveeInput"),
+          g: document.getElementById("gInput"),
+          m: document.getElementById("mInput"),
+          v0Target: document.getElementById("v0TargetInput"),
+          targetX: document.getElementById("targetXInput"),
+          targetY: document.getElementById("targetYInput"),
+          targetZ: document.getElementById("targetZInput"),
+          outOfPlane: document.getElementById("outOfPlaneInput"),
+          radius: document.getElementById("radiusInput"),
+          dragCoeff: document.getElementById("dragCoeffInput"),
+        };
+        values = { speed: document.getElementById("speedValue"), vectorScale: document.getElementById("vectorScaleValue") };
+        enveloppeCheckbox = document.getElementById("enveloppeCheckbox");
+        modeRadios = document.querySelectorAll('input[name="mode"]');
+
+        resultsDisplay = document.getElementById("results-display");
+        resultsDisplayDesktop = document.getElementById("results-display-desktop");
+        equationDisplay = document.getElementById("equation-display");
+        equationDisplayDesktop = document.getElementById("equation-display-desktop");
+
+        mobileParamsButton = document.getElementById("mobileParamsButton");
+        mobileGoButton = document.getElementById("mobileGoButton");
+        closePanelButton = document.getElementById("closePanelButton");
+
+        solutionsDisplay = document.getElementById("solutions-display");
+
+        simulationControls = document.getElementById("simulation-controls");
+        targetControls = document.getElementById("target-controls");
+        commonControls = document.getElementById("common-controls");
+
+        hArriveeControl = document.getElementById("h-arrivee-control");
+        massControl = document.getElementById("mass-control");
+
+        const debounce = (fn, ms = 120) => {
+          let t = null;
+          return (...args) => {
+            clearTimeout(t);
+            t = setTimeout(() => fn(...args), ms);
+          };
+        };
+        const onResize = debounce(() => {
+          setupCanvas();
+          if (state.mode === "simulation") update();
+          else calculateTargetSolutions();
+        }, 120);
+        window.addEventListener("resize", onResize, { passive: true });
+
+        const linkSliderInput = (sliderElem, inputElem, onUpdate) => {
+          if (!sliderElem || !inputElem) return;
+          sliderElem.addEventListener(
+            "input",
+            (e) => {
+              inputElem.value = sliderElem.value;
+              onUpdate();
+            },
+            { passive: true }
+          );
+          inputElem.addEventListener("change", () => {
+            const value = parseFloat(inputElem.value);
+            const min = parseFloat(sliderElem.min);
+            const max = parseFloat(sliderElem.max);
+            if (!isNaN(value) && value >= min && value <= max) {
+              sliderElem.value = value;
+              onUpdate();
+            } else inputElem.value = sliderElem.value;
+          });
+        };
+
+        ["v0", "alpha", "hArrivee", "m", "radius", "dragCoeff", "outOfPlane"].forEach((key) => {
+          if (sliders[key] && inputs[key]) linkSliderInput(sliders[key], inputs[key], update);
+        });
+        if (sliders.v0Target && inputs.v0Target)
+          linkSliderInput(sliders.v0Target, inputs.v0Target, calculateTargetSolutions);
+        if (sliders.targetX && inputs.targetX)
+          linkSliderInput(sliders.targetX, inputs.targetX, calculateTargetSolutions);
+        if (sliders.targetY && inputs.targetY)
+          linkSliderInput(sliders.targetY, inputs.targetY, calculateTargetSolutions);
+        if (sliders.targetZ && inputs.targetZ)
+          linkSliderInput(sliders.targetZ, inputs.targetZ, calculateTargetSolutions);
+        if (inputs.targetX)
+        inputs.targetX.addEventListener("input", calculateTargetSolutions, {
+          passive: true,
+        });
+        if (inputs.targetY)
+        inputs.targetY.addEventListener("input", calculateTargetSolutions, {
+          passive: true,
+        });
+
+        ["h", "g"].forEach((key) => {
+          const shared = () => {
+            if (state.mode === "simulation") update();
+            else calculateTargetSolutions();
+          };
+          if (sliders[key] && inputs[key]) linkSliderInput(sliders[key], inputs[key], shared);
+        });
+
+        if (sliders.speed)
+          sliders.speed.addEventListener(
+            "input",
+            (e) => {
+              const raw = parseFloat(e.target.value);
+              state.speedFactor = raw * SPEED_SCALE;
+              if (values.speed) values.speed.textContent = `${raw.toFixed(2)}x`;
+            },
+            { passive: true }
+          );
+
+        if (sliders.vectorScale)
+          sliders.vectorScale.addEventListener(
+            "input",
+            (e) => {
+              state.velocityVectorScale = parseFloat(e.target.value);
+              if (values.vectorScale) values.vectorScale.textContent = e.target.value;
+              draw();
+            },
+            { passive: true }
+          );
+
+        if (modeRadios)
+        modeRadios.forEach((radio) => radio.addEventListener("change", (e) => setMode(e.target.value)));
+        if (resetButton) resetButton.addEventListener("click", reset);
+        if (pauseButton) pauseButton.addEventListener("click", toggleAnimation);
+        if (enveloppeCheckbox) enveloppeCheckbox.addEventListener("change", draw, { passive: true });
+
+        if (resistanceCheckbox)
+        resistanceCheckbox.addEventListener(
+          "change",
+          (e) => {
+            state.isResistanceActive = e.target.checked;
+            resistanceParamsDiv.classList.toggle("hidden", !e.target.checked);
+            if (state.isResistanceActive) {
+              setMode("simulation");
+              document.querySelector('input[value="target"]').disabled = true;
+            } else {
+              document.querySelector('input[value="target"]').disabled = false;
+            }
+            update();
+          },
+          { passive: true }
+        );
+
+        document.getElementById("compareIdealCheckbox").addEventListener(
+          "change",
+          (e) => {
+            state.showIdealTrajectory = e.target.checked;
+            draw();
+          },
+          { passive: true }
+        );
+
+        document.querySelectorAll('input[name="dragModel"]').forEach((radio) =>
+          radio.addEventListener("change", (e) => {
+            state.dragModel = e.target.value;
+            update();
+          })
+        );
+
+        document.getElementById("velocityVectorsCheckbox").addEventListener(
+          "change",
+          (e) => {
+            state.showVelocityVectors = e.target.checked;
+            document.getElementById("velocity-options").classList.toggle("hidden", !e.target.checked);
+            draw();
+          },
+          { passive: true }
+        );
+        document.getElementById("showComponentsCheckbox").addEventListener(
+          "change",
+          (e) => {
+            state.showVelocityComponents = e.target.checked;
+            draw();
+          },
+          { passive: true }
+        );
+        document.getElementById("showVelocityValuesCheckbox").addEventListener(
+          "change",
+          (e) => {
+            state.showVelocityValues = e.target.checked;
+            draw();
+          },
+          { passive: true }
+        );
+
+        const velocityOptions = document.getElementById("velocity-options");
+        if (velocityOptions) {
+          velocityOptions.classList.toggle("hidden", !state.showVelocityVectors);
+        }
+
+        const projectileShapeRadios = document.querySelectorAll('input[name="projectileShape"]');
+        const dragCoeffControl = document.getElementById("dragCoeff-control");
+
+        const updateDragCoeffFromShape = () => {
+          const selectedRadio = document.querySelector('input[name="projectileShape"]:checked');
+          state.projectileShape = selectedRadio ? selectedRadio.value : "sphere";
+
+          if (dragCoeffControl) {
+          if (state.projectileShape === "custom") {
+            dragCoeffControl.classList.remove("disabled-by-shape");
+              if (inputs.dragCoeff) inputs.dragCoeff.disabled = false;
+              if (sliders.dragCoeff) sliders.dragCoeff.disabled = false;
+          } else {
+            dragCoeffControl.classList.add("disabled-by-shape");
+              if (inputs.dragCoeff) inputs.dragCoeff.disabled = true;
+              if (sliders.dragCoeff) sliders.dragCoeff.disabled = true;
+            state.dragCoeff = DRAG_COEFF_PRESETS[state.projectileShape] || 0.47;
+              if (inputs.dragCoeff) inputs.dragCoeff.value = state.dragCoeff.toFixed(2);
+              if (sliders.dragCoeff) sliders.dragCoeff.value = state.dragCoeff;
+            }
+          }
+          update();
+        };
+
+        projectileShapeRadios.forEach((radio) => {
+          radio.addEventListener("change", updateDragCoeffFromShape);
+        });
+
+        linkSliderInput(sliders.dragCoeff, inputs.dragCoeff, update);
+
+        updateDragCoeffFromShape();
+
+        openBtn = document.getElementById("openBtn");
+        panel = document.getElementById("panel");
+
+        if (openBtn) {
+          openBtn.addEventListener("click", togglePanel);
+        }
+
+        const closePanelHeaderBtn = document.getElementById("closePanelHeaderBtn");
+        if (closePanelHeaderBtn) {
+          closePanelHeaderBtn.addEventListener("click", togglePanel);
+        }
+
+        const themeToggleBtn = document.getElementById("themeToggleBtn");
+        if (themeToggleBtn) {
+          themeToggleBtn.addEventListener("click", toggleTheme);
+        }
+
+      }
+
+      /* =========================================
+       LOGIQUE THEME DARK / LIGHT
+       ========================================= */
+      function toggleTheme() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+
+        html.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+
+        updateThemeIcon(newTheme);
+        updateThreeJsTheme(newTheme);
+      }
+
+      function updateThemeIcon(theme) {
+        const btn = document.getElementById("themeToggleBtn");
+        if (btn) {
+          btn.textContent = theme === "dark" ? "🌙" : "☀️";
+        }
+      }
+
+      function updateThreeJsTheme(theme) {
+        const isDark = theme === "dark";
+
+        // Scene background
+        scene.background = isDark ? new THREE.Color(0x121212) : new THREE.Color(0xf0f0f0);
+
+        // Projectile color
+        if (projectileMesh) {
+          (projectileMesh.material).color.set(isDark ? 0x4facfe : 0x0000ff);
+        }
+
+        // Target color
+        if (targetMesh) {
+          (targetMesh.material).color.set(isDark ? 0xe44d26 : 0xe44d26);
+        }
+
+        // Trajectory lines colors
+        if (mainTrajectoryLine) {
+          (mainTrajectoryLine.material).color.set(isDark ? 0x4facfe : 0x0000ff);
+        }
+        if (idealTrajectoryLine) {
+          (idealTrajectoryLine.material).color.set(isDark ? 0xcccccc : 0x888888);
+        }
+        if (trajectory1Line) {
+          (trajectory1Line.material).color.set(0xff0000);
+        }
+        if (trajectory2Line) {
+          (trajectory2Line.material).color.set(0x800080);
+        }
+
+        // GridHelper color
+        if (gridHelper) {
+          // setColors is no longer a function, recreate GridHelper if colors need to change
+          if (scene.children.includes(gridHelper)) {
+            scene.remove(gridHelper);
+          }
+          const gridColorCenter = isDark ? 0x444444 : 0xcccccc;
+          const gridColorGrid = isDark ? 0x222222 : 0xaaaaaa;
+          gridHelper = new THREE.GridHelper(100, 100, gridColorCenter, gridColorGrid);
+          scene.add(gridHelper);
+        }
+      }
+
+      /* =========================================
+       DÉMARRAGE
+       ========================================= */
+      document.addEventListener("DOMContentLoaded", () => {
+      setupCanvas();
+        setupEventListeners(); // Initialisation de sliders et inputs ici
+        console.log("DOMContentLoaded: Sliders initialized:", sliders);
+        console.log("DOMContentLoaded: Inputs initialized:", inputs);
+      setMode("simulation");
+      reset();
+        // Afficher le vecteur de tir initial
+        drawV0Vector(state.alpha, 0x0000ff);
+        animationLoop();
+          // Pause/lecture avec la barre espace
+          window.addEventListener("keydown", (e) => {
+            if (e.code === "Space") {
+              e.preventDefault();
+              toggleAnimation();
+            }
+          });
+        // Initialisation du thème après que la scène Three.js soit initialisée
+        (function initTheme() {
+          const savedTheme = localStorage.getItem("theme") || "dark";
+          if (!localStorage.getItem("theme")) {
+            localStorage.setItem("theme", "dark");
+          }
+          document.documentElement.setAttribute("data-theme", savedTheme);
+          updateThemeIcon(savedTheme);
+          updateThreeJsTheme(savedTheme);
+          draw();
+        })();
+      });
+    </script>
+  </body>
+</html>
