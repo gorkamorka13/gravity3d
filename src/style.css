@@ -127,17 +127,67 @@ body {
 }
 
 #panelHeader {
-  padding: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 15px 20px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--section-border);
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Effet semi-transparent et ombre au scroll */
+#panel.has-scroll #panelHeader {
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border-bottom-color: rgba(0,0,0,0.05);
+}
+
+[data-theme="dark"] #panel.has-scroll #panelHeader {
+  background: rgba(15, 23, 42, 0.4);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border-bottom-color: rgba(255,255,255,0.05);
+}
+
+#themeToggleBtn {
+  margin-right: 12px;
+}
+
+#panelHeader .icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#panelHeader .icon-btn:hover {
+  background: rgba(0,0,0,0.05);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] #panelHeader .icon-btn:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+#panelHeader .icon-btn svg {
+  stroke-width: 1.5px;
 }
 
 #panelContent {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 20px 20px;
+  padding: 10px 20px 20px 20px;
   scrollbar-width: thin;
 }
 

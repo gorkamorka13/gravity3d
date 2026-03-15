@@ -77,15 +77,23 @@ export class SimulationRenderer {
     this.trajectory2Marker.visible = false;
     this.scene.add(this.trajectory2Marker);
 
-    // Target Marker
-    const targetGeom = new THREE.SphereGeometry(1.0, 32, 32);
+    // Target Marker (Cible en forme de cube)
+    const targetGeom = new THREE.BoxGeometry(2, 2, 2);
     this.targetMesh = new THREE.Mesh(targetGeom, new THREE.MeshStandardMaterial({ 
       color: 0xffff00, 
       transparent: true, 
-      opacity: 0.7,
-      emissive: 0x999900,
-      emissiveIntensity: 0.5
+      opacity: 0.5,
+      emissive: 0x666600,
+      emissiveIntensity: 0.8,
+      metalness: 0.5,
+      roughness: 0.2
     }));
+    
+    // Bordures du cube cible pour plus de visibilité
+    const targetEdges = new THREE.EdgesGeometry(targetGeom);
+    const targetLine = new THREE.LineSegments(targetEdges, new THREE.LineBasicMaterial({ color: 0xffff00 }));
+    this.targetMesh.add(targetLine);
+    
     this.scene.add(this.targetMesh);
     this.targetMesh.visible = false;
 
@@ -178,12 +186,7 @@ export class SimulationRenderer {
     this.gridHelper.material.transparent = true;
     this.scene.add(this.gridHelper);
 
-    // Target
-    const targetGeometry = new THREE.ConeGeometry(0.5, 2, 32);
-    this.targetMesh = new THREE.Mesh(targetGeometry, new THREE.MeshPhongMaterial({ color: 0xe44d26 }));
-    this.targetMesh.rotation.x = Math.PI / 2;
-    this.targetMesh.visible = false;
-    this.scene.add(this.targetMesh);
+
 
     // Impact
     const impactGeometry = new THREE.SphereGeometry(0.3, 16, 16);
@@ -455,29 +458,32 @@ export class SimulationRenderer {
   }
 
   setCameraView(view) {
-    const dist = 70;
+    const dist = 75;
     this.camera.up.set(0, 1, 0); // Default up
 
     switch(view) {
       case 'top':
-        this.camera.position.set(20, dist, 0);
-        this.camera.up.set(1, 0, 0); // Aligner X vers le haut pour la vue de dessus
+        this.camera.position.set(25, dist, 0);
+        this.camera.up.set(1, 0, 0); // Aligner X' vers le haut
         break;
-      case 'front': // Face à la parabole (XZ simulation -> XY Three)
-        this.camera.position.set(20, 10, dist);
+      case 'left':
+        this.camera.position.set(25, 10, -dist);
         break;
-      case 'side': // De côté (YZ simulation -> ZY Three)
-        this.camera.position.set(dist + 20, 10, 0);
+      case 'right':
+        this.camera.position.set(25, 10, dist);
         break;
+      case 'iso':
+        this.resetCamera();
+        return;
     }
-    this.controls.target.set(20, 0, 0); // Centrer sur la zone de tir typique
+    this.controls.target.set(25, 5, 0); 
     this.controls.update();
   }
 
   resetCamera() {
-    this.camera.position.set(50, 50, 50);
+    this.camera.position.set(50, 40, 50);
     this.camera.up.set(0, 1, 0);
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.set(20, 0, 0);
     this.controls.update();
   }
 }
