@@ -140,10 +140,6 @@ function updateVectors(traj, frameIndex) {
 }
 
 function calculateTargetSolutions() {
-  state.showFinalTrajectory = false;
-  state.isDualTrajectoryMode = false;
-  state.currentFrameIndex = 0;
-  
   const v0 = parseFloat(sliders.v0Target.value);
   const g = parseFloat(sliders.g.value);
   const h = parseFloat(sliders.h.value);
@@ -175,9 +171,10 @@ function calculateTargetSolutions() {
   const C = deltaZ + A;
   const delta = B ** 2 - 4 * A * C;
 
+  state.isDualTrajectoryMode = false;
   if (delta < 0) {
     state.solutions = [];
-    state.trajectoire = state.trajectoire1 = state.trajectoire2 = [];
+    state.trajectoire1 = state.trajectoire2 = [];
   } else {
     const T1 = (-B + Math.sqrt(delta)) / (2 * A);
     const T2 = (-B - Math.sqrt(delta)) / (2 * A);
@@ -201,7 +198,7 @@ function calculateTargetSolutions() {
       }
     }
   }
-  updateResults();
+  updateSimulation();
 }
 
 function updateSimulation() {
@@ -251,26 +248,26 @@ function updateSimulation() {
       state.idealTrajectoire = [];
     }
     Object.assign(state, chars);
-    updateResults();
-
-    // Réinitialiser la position au départ si on ne simule pas activement
-    if (!state.simulationStarted || state.isPaused) {
-      state.currentFrameIndex = 0;
-      renderer.projectileMesh.position.set(state.x0, state.h, state.y0); 
-    }
-
-    // Orienter le repère local
-    if (renderer.localFrame) {
-      renderer.localFrame.rotation.y = -betaRad; 
-    }
   }
 
-  if (state.mode === "target") {
+  // Common positioning for all modes
+  if (!state.simulationStarted || state.isPaused) {
+    state.currentFrameIndex = 0;
+    renderer.projectileMesh.position.set(state.x0, state.h, state.y0);
+  }
+  
+  if (state.mode === "simulation" && renderer.localFrame) {
+    const betaRad = toRad(state.outOfPlaneAngleDeg || 0);
+    renderer.localFrame.rotation.y = -betaRad;
+  }
+
+  if (state.mode === "target" && state.target) {
      renderer.targetMesh.position.set(state.target.x, state.target.z, state.target.y);
      renderer.targetMesh.visible = true;
   } else {
      renderer.targetMesh.visible = false;
   }
+  updateResults();
 
   // Draw Lines
   if (state.mode === "simulation") {

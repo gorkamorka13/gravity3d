@@ -77,6 +77,18 @@ export class SimulationRenderer {
     this.trajectory2Marker.visible = false;
     this.scene.add(this.trajectory2Marker);
 
+    // Target Marker
+    const targetGeom = new THREE.SphereGeometry(1.0, 32, 32);
+    this.targetMesh = new THREE.Mesh(targetGeom, new THREE.MeshStandardMaterial({ 
+      color: 0xffff00, 
+      transparent: true, 
+      opacity: 0.7,
+      emissive: 0x999900,
+      emissiveIntensity: 0.5
+    }));
+    this.scene.add(this.targetMesh);
+    this.targetMesh.visible = false;
+
     // Repères volumétriques (pour régler l'épaisseur)
     const axisRadius = 0.15;
     const axisLength = 60;
