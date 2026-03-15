@@ -32,7 +32,7 @@ export const state = {
   isUpdating: false,
   animationId: null,
   staticResultsHTML: "",
-  mode: "simulation",
+  mode: "target",
   isResistanceActive: false,
   radius: 0.05,
   dragCoeff: 0.47,

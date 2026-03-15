@@ -97,7 +97,7 @@ function updateVectors(traj, frameIndex) {
       const vxTip = origin.clone().add(dirX.clone().multiplyScalar(v_horiz * state.velocityVectorScale));
       renderer.updateLabel("vxLabel", `vx'=${v_horiz.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 2.5, -3.5)), colorX);
 
-      renderer.vzVector.setDirection(new THREE.Vector3(0,1,0));
+      renderer.vzVector.setDirection(new THREE.Vector3(0, vel.vz >= 0 ? 1 : -1, 0));
       renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669));
       renderer.vzVector.position.copy(vxTip);
       renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.5, 0.25);
@@ -125,7 +125,7 @@ function updateVectors(traj, frameIndex) {
       const vyTip = vxTip.clone().add(new THREE.Vector3(0, 0, vel.vy * state.velocityVectorScale));
       renderer.updateLabel("vyLabel", `vy=${vel.vy.toFixed(2)} m/s`, vyTip.clone().add(new THREE.Vector3(4.0, 0, 0)), colorY);
       
-      renderer.vzVector.setDirection(new THREE.Vector3(0,1,0)); // Axe Z vertical (Three Y)
+      renderer.vzVector.setDirection(new THREE.Vector3(0, vel.vz >= 0 ? 1 : -1, 0)); // Axe Z vertical (Three Y)
       renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669));
       renderer.vzVector.position.copy(vyTip);
       renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.5, 0.25);
@@ -250,10 +250,23 @@ function updateSimulation() {
     Object.assign(state, chars);
   }
 
-  // Common positioning for all modes
+  // Positionnement initial des projectiles
   if (!state.simulationStarted || state.isPaused) {
     state.currentFrameIndex = 0;
-    renderer.projectileMesh.position.set(state.x0, state.h, state.y0);
+    const p0 = { x: state.x0, y: state.h, z: state.y0 };
+    renderer.projectileMesh.position.set(p0.x, p0.y, p0.z);
+    renderer.trajectory1Marker.position.set(p0.x, p0.y, p0.z);
+    renderer.trajectory2Marker.position.set(p0.x, p0.y, p0.z);
+  }
+  
+  if (state.mode === "simulation") {
+    renderer.projectileMesh.visible = true;
+    renderer.trajectory1Marker.visible = false;
+    renderer.trajectory2Marker.visible = false;
+  } else {
+    renderer.projectileMesh.visible = false;
+    renderer.trajectory1Marker.visible = state.trajectoire1.length > 0;
+    renderer.trajectory2Marker.visible = state.isDualTrajectoryMode && state.trajectoire2.length > 0;
   }
   
   if (state.mode === "simulation" && renderer.localFrame) {
@@ -319,9 +332,18 @@ function updateResults(dynamicHTML = "") {
   }
 }
 
-function toggleAnimation(atEnd = false) {
+function toggleAnimation() {
   state.isPaused = !state.isPaused;
+  
   if (!state.isPaused) {
+    // Si on est à la fin, on recommence au début
+    let traj = state.mode === "simulation" ? state.trajectoire : state.trajectoire1;
+    let maxFrames = state.isDualTrajectoryMode ? Math.max(state.trajectoire1.length, state.trajectoire2.length) : (traj ? traj.length : 0);
+    
+    if (state.currentFrameIndex >= maxFrames - 1) {
+      state.currentFrameIndex = 0;
+    }
+
     state.simulationStarted = true;
     state.showFinalTrajectory = true;
     elements.pauseButton.textContent = "Pause";
@@ -346,21 +368,49 @@ function animationLoop() {
     if (state.currentFrameIndex >= maxFrames - 1 && maxFrames > 0) {
       state.currentFrameIndex = maxFrames - 1;
       idx = Math.floor(state.currentFrameIndex);
-      toggleAnimation(true);
+      toggleAnimation();
     } else {
       state.currentFrameIndex += state.speedFactor;
       idx = Math.floor(state.currentFrameIndex);
     }
+  }
+
+  // Positionnement des projectiles selon le mode
+  if (state.mode === "simulation") {
+    renderer.projectileMesh.visible = true;
+    renderer.trajectory1Marker.visible = false;
+    renderer.trajectory2Marker.visible = false;
     
-    if (traj.length > 0 && traj[idx]) {
-      let frame = traj[idx];
-      renderer.projectileMesh.position.set(frame.x, frame.z, frame.y);
+    if (state.trajectoire.length > 0 && state.trajectoire[idx]) {
+      const f = state.trajectoire[idx];
+      renderer.projectileMesh.position.set(f.x, f.z, f.y);
       if (state.coordSystem === "local") {
-        const xPrime = Math.sqrt(frame.x**2 + frame.y**2);
-        updateResults(`<b>t = ${(idx * DT).toFixed(2)}s</b>, x' = ${xPrime.toFixed(1)}m, z = ${frame.z.toFixed(1)}m`);
+        const xP = Math.sqrt(f.x**2 + f.y**2);
+        updateResults(`<b>t = ${(idx * DT).toFixed(2)}s</b>, x' = ${xP.toFixed(1)}m, z = ${f.z.toFixed(1)}m`);
       } else {
-        updateResults(`<b>t = ${(idx * DT).toFixed(2)}s</b>, x = ${frame.x.toFixed(1)}m, y = ${frame.y.toFixed(1)}m, z = ${frame.z.toFixed(1)}m`);
+        updateResults(`<b>t = ${(idx * DT).toFixed(2)}s</b>, x = ${f.x.toFixed(1)}m, y = ${f.y.toFixed(1)}m, z = ${f.z.toFixed(1)}m`);
       }
+    }
+  } else {
+    // Mode Cible
+    renderer.projectileMesh.visible = false;
+    
+    // Solution 1 (Rouge)
+    if (state.trajectoire1.length > 0) {
+      const f1 = state.trajectoire1[Math.min(idx, state.trajectoire1.length - 1)];
+      renderer.trajectory1Marker.position.set(f1.x, f1.z, f1.y);
+      renderer.trajectory1Marker.visible = true;
+    } else {
+      renderer.trajectory1Marker.visible = false;
+    }
+    
+    // Solution 2 (Violette)
+    if (state.isDualTrajectoryMode && state.trajectoire2.length > 0) {
+      const f2 = state.trajectoire2[Math.min(idx, state.trajectoire2.length - 1)];
+      renderer.trajectory2Marker.position.set(f2.x, f2.z, f2.y);
+      renderer.trajectory2Marker.visible = true;
+    } else {
+      renderer.trajectory2Marker.visible = false;
     }
   }
 
@@ -621,7 +671,18 @@ document.addEventListener("DOMContentLoaded", () => {
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
     </svg>`;
   
-  updateSimulation();
+  const checkedMode = document.querySelector('input[name="mode"]:checked');
+  if (checkedMode) {
+    state.mode = checkedMode.value;
+    document.getElementById("simulation-controls").classList.toggle("hidden", state.mode === "target");
+    document.getElementById("target-controls").classList.toggle("hidden", state.mode === "simulation");
+  }
+
+  if (state.mode === "target") {
+    calculateTargetSolutions();
+  } else {
+    updateSimulation();
+  }
   animationLoop();
   
   // Forcer le redimensionnement pour un affichage "droit" dès le départ

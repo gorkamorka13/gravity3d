@@ -40,8 +40,8 @@ export class SimulationRenderer {
   }
 
   initMeshes() {
-    // Projectile
-    const projectileGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+    // Projectile Principal
+    const projectileGeometry = new THREE.SphereGeometry(0.6, 32, 32);
     this.projectileMesh = new THREE.Mesh(projectileGeometry, new THREE.MeshPhongMaterial());
     this.scene.add(this.projectileMesh);
 
@@ -97,31 +97,44 @@ export class SimulationRenderer {
     this.scene.add(this.targetMesh);
     this.targetMesh.visible = false;
 
-    // Repères volumétriques (pour régler l'épaisseur)
-    const axisRadius = 0.15;
-    const axisLength = 60;
+    // Repères volumétriques affinés (Dépassent la grille d'un carreau)
+    const axisRadius = 0.08;
+    const axisLength = 52.5; // Grille de 50m + 1 carreau de 2.5m
+    const arrowSize = 1.2;
+    const arrowRadius = 0.25;
     
-    // Axe X (Rouge - Profondeur)
-    const geomX = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
-    this.axisX = new THREE.Mesh(geomX, new THREE.MeshBasicMaterial({ color: 0xff4444 }));
-    this.axisX.rotation.z = -Math.PI / 2;
-    this.axisX.position.x = axisLength / 2;
+    // Axe X (Rouge)
+    this.axisX = new THREE.Group();
+    const cylX = new THREE.Mesh(new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8), new THREE.MeshBasicMaterial({ color: 0xff4444 }));
+    cylX.rotation.z = -Math.PI / 2;
+    cylX.position.x = axisLength / 2;
+    const coneX = new THREE.Mesh(new THREE.ConeGeometry(arrowRadius, arrowSize, 8), new THREE.MeshBasicMaterial({ color: 0xff4444 }));
+    coneX.rotation.z = -Math.PI / 2;
+    coneX.position.x = axisLength;
+    this.axisX.add(cylX, coneX);
     this.scene.add(this.axisX);
 
-    // Axe Z (Vert - Hauteur / Three.js Y)
-    const geomZ = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
-    this.axisZ = new THREE.Mesh(geomZ, new THREE.MeshBasicMaterial({ color: 0x44ff44 }));
-    this.axisZ.position.y = axisLength / 2;
+    // Axe Z (Vert - Vertical)
+    this.axisZ = new THREE.Group();
+    const cylZ = new THREE.Mesh(new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8), new THREE.MeshBasicMaterial({ color: 0x44ff44 }));
+    cylZ.position.y = axisLength / 2;
+    const coneZ = new THREE.Mesh(new THREE.ConeGeometry(arrowRadius, arrowSize, 8), new THREE.MeshBasicMaterial({ color: 0x44ff44 }));
+    coneZ.position.y = axisLength;
+    this.axisZ.add(cylZ, coneZ);
     this.scene.add(this.axisZ);
 
-    // Axe Y (Bleu - Latéral / Three.js Z)
-    const geomY = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
-    this.axisY = new THREE.Mesh(geomY, new THREE.MeshBasicMaterial({ color: 0x4444ff }));
-    this.axisY.rotation.x = Math.PI / 2;
-    this.axisY.position.z = axisLength / 2;
+    // Axe Y (Bleu - Latéral)
+    this.axisY = new THREE.Group();
+    const cylY = new THREE.Mesh(new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8), new THREE.MeshBasicMaterial({ color: 0x4444ff }));
+    cylY.rotation.x = Math.PI / 2;
+    cylY.position.z = axisLength / 2;
+    const coneY = new THREE.Mesh(new THREE.ConeGeometry(arrowRadius, arrowSize, 8), new THREE.MeshBasicMaterial({ color: 0x4444ff }));
+    coneY.rotation.x = Math.PI / 2;
+    coneY.position.z = axisLength;
+    this.axisY.add(cylY, coneY);
     this.scene.add(this.axisY);
 
-    // Repère local aligné sur la trajectoire (Pointillés)
+    // Repère local aligné sur la trajectoire (Pointillés avec Flèches)
     this.localFrame = new THREE.Group();
     this.scene.add(this.localFrame);
     
@@ -131,7 +144,10 @@ export class SimulationRenderer {
       new THREE.LineDashedMaterial({ color: 0xff4444, dashSize: 2, gapSize: 1 })
     );
     this.localX.computeLineDistances();
-    this.localFrame.add(this.localX);
+    this.coneLocalX = new THREE.Mesh(new THREE.ConeGeometry(0.25, 1, 8), new THREE.MeshBasicMaterial({ color: 0xff4444 }));
+    this.coneLocalX.rotation.z = -Math.PI / 2;
+    this.coneLocalX.position.x = 45;
+    this.localFrame.add(this.localX, this.coneLocalX);
 
     // Axe Z Local (Vert pointillé - Vertical)
     this.localZ = new THREE.Line(
@@ -139,7 +155,9 @@ export class SimulationRenderer {
       new THREE.LineDashedMaterial({ color: 0x44ff44, dashSize: 2, gapSize: 1 })
     );
     this.localZ.computeLineDistances();
-    this.localFrame.add(this.localZ);
+    this.coneLocalZ = new THREE.Mesh(new THREE.ConeGeometry(0.25, 1, 8), new THREE.MeshBasicMaterial({ color: 0x44ff44 }));
+    this.coneLocalZ.position.y = 45;
+    this.localFrame.add(this.localZ, this.coneLocalZ);
 
     // Axe Y' Local (Bleu pointillé - Latéral au plan)
     this.localY = new THREE.Line(
@@ -147,7 +165,10 @@ export class SimulationRenderer {
       new THREE.LineDashedMaterial({ color: 0x4444ff, dashSize: 2, gapSize: 1 })
     );
     this.localY.computeLineDistances();
-    this.localFrame.add(this.localY);
+    this.coneLocalY = new THREE.Mesh(new THREE.ConeGeometry(0.25, 1, 8), new THREE.MeshBasicMaterial({ color: 0x4444ff }));
+    this.coneLocalY.rotation.x = Math.PI / 2;
+    this.coneLocalY.position.z = 45;
+    this.localFrame.add(this.localY, this.coneLocalY);
     
     // Labels pour le repère local
     this.labelXPrime = this.makeLabelSprite("x'", "#ff4444");
@@ -165,19 +186,19 @@ export class SimulationRenderer {
     this.labelZPrime.position.set(0, 47, 0);
     this.localFrame.add(this.labelZPrime);
 
-    // Étiquettes d'axes globaux (Z est la hauteur pour l'utilisateur)
+    // Étiquettes d'axes globaux
     this.labelX = this.makeLabelSprite("X", "#ff4444");
-    this.labelX.position.set(62, 0, 0);
+    this.labelX.position.set(55, 0, 0);
     this.labelX.scale.set(4, 2, 1); 
     this.scene.add(this.labelX);
 
     this.labelZ = this.makeLabelSprite("Z", "#44ff44"); // Vertical
-    this.labelZ.position.set(0, 62, 0);
+    this.labelZ.position.set(0, 55, 0);
     this.labelZ.scale.set(4, 2, 1); 
     this.scene.add(this.labelZ);
 
     this.labelY = this.makeLabelSprite("Y", "#4444ff"); // Profondeur
-    this.labelY.position.set(0, 0, 62);
+    this.labelY.position.set(0, 0, 55);
     this.labelY.scale.set(4, 2, 1); 
     this.scene.add(this.labelY);
 
@@ -262,9 +283,9 @@ export class SimulationRenderer {
 
     // Mise à jour des couleurs des labels d'axes pour le contraste
     const labels = [
-      { key: 'labelX', text: 'X', pos: [62, 0, 0], color: isDark ? "#ff4444" : "#dc2626" },
-      { key: 'labelZ', text: 'Z', pos: [0, 62, 0], color: isDark ? "#44ff44" : "#059669" },
-      { key: 'labelY', text: 'Y', pos: [0, 0, 62], color: isDark ? "#4444ff" : "#2563eb" }
+      { key: 'labelX', text: 'X', pos: [55, 0, 0], color: isDark ? "#ff4444" : "#dc2626" },
+      { key: 'labelZ', text: 'Z', pos: [0, 55, 0], color: isDark ? "#44ff44" : "#059669" },
+      { key: 'labelY', text: 'Y', pos: [0, 0, 55], color: isDark ? "#4444ff" : "#2563eb" }
     ];
 
     labels.forEach(l => {
@@ -279,15 +300,36 @@ export class SimulationRenderer {
       this.scene.add(this[l.key]);
     });
 
-    // Mise à jour de la couleur des axes volumétriques
-    if (this.axisX) this.axisX.material.color.set(isDark ? 0xff4444 : 0xdc2626);
-    if (this.axisZ) this.axisZ.material.color.set(isDark ? 0x44ff44 : 0x059669);
-    if (this.axisY) this.axisY.material.color.set(isDark ? 0x4444ff : 0x2563eb);
+    // Mise à jour de la couleur des axes volumétriques (Cylindres + Cônes)
+    const updateAxisColor = (group, color) => {
+      if (group) {
+        group.children.forEach(child => {
+          if (child.material) child.material.color.set(color);
+        });
+      }
+    };
 
-    // Mise à jour de la couleur des axes locaux pointillés
-    if (this.localX) this.localX.material.color.set(isDark ? 0xff4444 : 0xdc2626);
-    if (this.localY) this.localY.material.color.set(isDark ? 0x4444ff : 0x2563eb);
-    if (this.localZ) this.localZ.material.color.set(isDark ? 0x44ff44 : 0x059669);
+    updateAxisColor(this.axisX, isDark ? 0xff4444 : 0xdc2626);
+    updateAxisColor(this.axisZ, isDark ? 0x44ff44 : 0x059669);
+    updateAxisColor(this.axisY, isDark ? 0x4444ff : 0x2563eb);
+
+    // Mise à jour de la couleur des axes locaux (Lignes + Cônes)
+    const colorLocalX = isDark ? 0xff4444 : 0xdc2626;
+    const colorLocalY = isDark ? 0x4444ff : 0x2563eb;
+    const colorLocalZ = isDark ? 0x44ff44 : 0x059669;
+
+    if (this.localX) {
+        this.localX.material.color.set(colorLocalX);
+        if (this.coneLocalX) this.coneLocalX.material.color.set(colorLocalX);
+    }
+    if (this.localY) {
+        this.localY.material.color.set(colorLocalY);
+        if (this.coneLocalY) this.coneLocalY.material.color.set(colorLocalY);
+    }
+    if (this.localZ) {
+        this.localZ.material.color.set(colorLocalZ);
+        if (this.coneLocalZ) this.coneLocalZ.material.color.set(colorLocalZ);
+    }
 
     // Mise à jour des labels locaux
     const localLabels = [
