@@ -29,6 +29,42 @@
       <div id="simulation-area">
         <h4 id="graph-title">Trajectoire du projectile</h4>
         <canvas id="simCanvas"></canvas>
+
+        <!-- Contrôles Caméra -->
+        <div id="cameraControls">
+          <!-- Vue de dessus (XY) : La face supérieure du cube est noire -->
+          <div class="camera-btn" id="btnTop" title="Vue de dessus (XY)">
+            <svg width="34" height="34" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="5,15 25,5 45,15 25,25" fill="#222222" />
+              <polygon points="45,15 45,35 25,45 25,25" fill="#e6e6e6" />
+              <polygon points="5,15 5,35 25,45 25,25" fill="#cacaca" />
+            </svg>
+          </div>
+
+          <!-- Vue de face (XZ) : La face de "gauche" (qui représente l'avant) est noire -->
+          <div class="camera-btn" id="btnFront" title="Vue de face (XZ)">
+            <svg width="34" height="34" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="5,15 25,5 45,15 25,25" fill="#cacaca" />
+              <polygon points="45,15 45,35 25,45 25,25" fill="#e6e6e6" />
+              <polygon points="5,15 5,35 25,45 25,25" fill="#222222" />
+            </svg>
+          </div>
+
+          <!-- Vue de côté (YZ) : La face de "droite" (qui représente le côté) est noire -->
+          <div class="camera-btn" id="btnSide" title="Vue de côté (YZ)">
+            <svg width="34" height="34" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="5,15 25,5 45,15 25,25" fill="#cacaca" />
+              <polygon points="45,15 45,35 25,45 25,25" fill="#222222" />
+              <polygon points="5,15 5,35 25,45 25,25" fill="#e6e6e6" />
+            </svg>
+          </div>
+
+          <div class="camera-btn" id="btnReset" title="Réinitialiser la vue (Isométrique)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path>
+            </svg>
+          </div>
+        </div>
       </div>
 
       <!-- PANNEAU LATÉRAL -->

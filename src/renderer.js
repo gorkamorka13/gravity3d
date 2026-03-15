@@ -453,4 +453,31 @@ export class SimulationRenderer {
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
+
+  setCameraView(view) {
+    const dist = 70;
+    this.camera.up.set(0, 1, 0); // Default up
+
+    switch(view) {
+      case 'top':
+        this.camera.position.set(20, dist, 0);
+        this.camera.up.set(1, 0, 0); // Aligner X vers le haut pour la vue de dessus
+        break;
+      case 'front': // Face à la parabole (XZ simulation -> XY Three)
+        this.camera.position.set(20, 10, dist);
+        break;
+      case 'side': // De côté (YZ simulation -> ZY Three)
+        this.camera.position.set(dist + 20, 10, 0);
+        break;
+    }
+    this.controls.target.set(20, 0, 0); // Centrer sur la zone de tir typique
+    this.controls.update();
+  }
+
+  resetCamera() {
+    this.camera.position.set(50, 50, 50);
+    this.camera.up.set(0, 1, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
 }

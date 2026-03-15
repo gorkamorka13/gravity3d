@@ -543,6 +543,31 @@ function initDOM() {
       updateSimulation(); // Repositionne au départ
     }
   });
+
+  // Camera views
+  const updateCameraBtnActive = (activeId) => {
+    document.querySelectorAll("#cameraControls .camera-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.id === activeId);
+    });
+  };
+
+  document.getElementById("btnTop").addEventListener("click", () => {
+    renderer.setCameraView('top');
+    updateCameraBtnActive("btnTop");
+  });
+  document.getElementById("btnFront").addEventListener("click", () => {
+    renderer.setCameraView('front');
+    updateCameraBtnActive("btnFront");
+  });
+  document.getElementById("btnSide").addEventListener("click", () => {
+    renderer.setCameraView('side');
+    updateCameraBtnActive("btnSide");
+  });
+  document.getElementById("btnReset").addEventListener("click", () => {
+    renderer.resetCamera();
+    updateCameraBtnActive("btnReset");
+    setTimeout(() => updateCameraBtnActive(""), 500);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
