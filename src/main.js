@@ -75,7 +75,7 @@ function updateVectors(traj, frameIndex) {
   renderer.velocityVector.visible = vel.v > 0.05;
 
   const vTip = origin.clone().add(dir.clone().multiplyScalar(length));
-  renderer.updateLabel("vLabel", `v=${vel.v.toFixed(2)} m/s`, vTip.clone().add(new THREE.Vector3(0, 0.8, 0)), "#4facfe");
+  renderer.updateLabel("vLabel", `v=${vel.v.toFixed(2)} m/s`, vTip.clone().add(new THREE.Vector3(0, 4.5, 0)), "#4facfe");
 
   if (state.showVelocityComponents) {
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -86,7 +86,7 @@ function updateVectors(traj, frameIndex) {
     if (state.coordSystem === "local") {
       const v_horiz = Math.sqrt(vel.vx**2 + vel.vy**2);
       const betaRadVal = toRad(state.outOfPlaneAngleDeg || 0);
-      const dirX = new THREE.Vector3(Math.cos(betaRadVal), 0, Math.sin(betaRadVal));
+      const dirX = new THREE.Vector3(Math.cos(betaRadVal), 0, Math.sin(betaRadVal)); 
       
       renderer.vxVector.setDirection(dirX);
       renderer.vxVector.setColor(new THREE.Color(isDark ? 0xff4444 : 0xdc2626));
@@ -95,15 +95,15 @@ function updateVectors(traj, frameIndex) {
       renderer.vxVector.visible = v_horiz > 0.1;
       
       const vxTip = origin.clone().add(dirX.clone().multiplyScalar(v_horiz * state.velocityVectorScale));
-      renderer.updateLabel("vxLabel", `vx'=${v_horiz.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 2.0, 0)), colorX);
+      renderer.updateLabel("vxLabel", `vx'=${v_horiz.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 2.5, -3.5)), colorX);
 
-      renderer.vzVector.setDirection(new THREE.Vector3(0,1,0)); // Vertical reste vertical
+      renderer.vzVector.setDirection(new THREE.Vector3(0,1,0));
       renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669));
       renderer.vzVector.position.copy(vxTip);
       renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vzVector.visible = Math.abs(vel.vz) > 0.1;
       const vzTip = vxTip.clone().add(new THREE.Vector3(0, vel.vz * state.velocityVectorScale, 0));
-      renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(2.0, 0, 2.0)), colorZ);
+      renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(3.5, 0, 3.5)), colorZ);
       
       renderer.vyVector.visible = false;
       if (renderer.velocityLabels["vyLabel"]) renderer.velocityLabels["vyLabel"].visible = false;
@@ -115,7 +115,7 @@ function updateVectors(traj, frameIndex) {
       renderer.vxVector.setLength(Math.abs(vel.vx)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vxVector.visible = Math.abs(vel.vx) > 0.1;
       const vxTip = origin.clone().add(new THREE.Vector3(vel.vx * state.velocityVectorScale, 0, 0));
-      renderer.updateLabel("vxLabel", `vx=${vel.vx.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 2.0, 0)), colorX);
+      renderer.updateLabel("vxLabel", `vx=${vel.vx.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 2.5, -3.5)), colorX);
 
       renderer.vyVector.setDirection(new THREE.Vector3(0,0,1)); // Axe Y latéral (Three Z)
       renderer.vyVector.setColor(new THREE.Color(isDark ? 0x4444ff : 0x2563eb));
@@ -123,7 +123,7 @@ function updateVectors(traj, frameIndex) {
       renderer.vyVector.setLength(Math.abs(vel.vy)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vyVector.visible = Math.abs(vel.vy) > 0.1;
       const vyTip = vxTip.clone().add(new THREE.Vector3(0, 0, vel.vy * state.velocityVectorScale));
-      renderer.updateLabel("vyLabel", `vy=${vel.vy.toFixed(2)} m/s`, vyTip.clone().add(new THREE.Vector3(3.0, 0, 0)), colorY);
+      renderer.updateLabel("vyLabel", `vy=${vel.vy.toFixed(2)} m/s`, vyTip.clone().add(new THREE.Vector3(4.0, 0, 0)), colorY);
       
       renderer.vzVector.setDirection(new THREE.Vector3(0,1,0)); // Axe Z vertical (Three Y)
       renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669));
@@ -131,7 +131,7 @@ function updateVectors(traj, frameIndex) {
       renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vzVector.visible = Math.abs(vel.vz) > 0.1;
       const vzTip = vyTip.clone().add(new THREE.Vector3(0, vel.vz * state.velocityVectorScale, 0));
-      renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(0, 0, 2.5)), colorZ);
+      renderer.updateLabel("vzLabel", `vz=${vel.vz.toFixed(2)} m/s`, vzTip.clone().add(new THREE.Vector3(3.5, 0, 3.5)), colorZ);
     }
   } else {
     renderer.vxVector.visible = renderer.vyVector.visible = renderer.vzVector.visible = false;
@@ -265,7 +265,7 @@ function updateSimulation() {
 
     // Orienter le repère local
     if (renderer.localFrame) {
-      renderer.localFrame.rotation.y = betaRad; 
+      renderer.localFrame.rotation.y = -betaRad; 
     }
   }
 
