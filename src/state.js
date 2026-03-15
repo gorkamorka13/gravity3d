@@ -50,7 +50,7 @@ export const state = {
   showVelocityValues: true,
   velocityVectorScale: 0.3,
   projectileShape: "sphere",
-  coordSystem: "global", // 'global' or 'local'
+  coordSystem: "local", // 'local' par défaut
 };
 
 export const DRAG_COEFF_PRESETS = {

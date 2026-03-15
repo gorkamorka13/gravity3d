@@ -6,7 +6,6 @@ import {
   calculerCaracteristiques,
   calculerEnveloppe,
   calculerTrajectoireAvecFrottement,
-  calculerVitesseMinimale,
   genererEquationParabole,
   toDeg,
   toRad,
@@ -86,16 +85,20 @@ function updateVectors(traj, frameIndex) {
 
     if (state.coordSystem === "local") {
       const v_horiz = Math.sqrt(vel.vx**2 + vel.vy**2);
-      renderer.vxVector.setDirection(new THREE.Vector3(1,0,0));
-      renderer.vxVector.setColor(new THREE.Color(isDark ? 0xff4444 : 0xdc2626)); // Rouge/Orange pour le plan
+      const betaRadVal = toRad(state.outOfPlaneAngleDeg || 0);
+      const dirX = new THREE.Vector3(Math.cos(-betaRadVal), 0, Math.sin(-betaRadVal));
+      
+      renderer.vxVector.setDirection(dirX);
+      renderer.vxVector.setColor(new THREE.Color(isDark ? 0xff4444 : 0xdc2626));
       renderer.vxVector.position.copy(origin);
       renderer.vxVector.setLength(v_horiz * state.velocityVectorScale, 0.2, 0.1);
       renderer.vxVector.visible = v_horiz > 0.1;
-      const vxTip = origin.clone().add(new THREE.Vector3(v_horiz * state.velocityVectorScale, 0, 0));
-      renderer.updateLabel("vxLabel", `vx'=${v_horiz.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 1.2, 0)), isDark ? "#ffaa00" : "#d97706");
+      
+      const vxTip = origin.clone().add(dirX.clone().multiplyScalar(v_horiz * state.velocityVectorScale));
+      renderer.updateLabel("vxLabel", `vx'=${v_horiz.toFixed(2)} m/s`, vxTip.clone().add(new THREE.Vector3(0, 1.2, 0)), colorX);
 
-      renderer.vzVector.setDirection(new THREE.Vector3(0,1,0)); // Vertical
-      renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669)); // Vert
+      renderer.vzVector.setDirection(new THREE.Vector3(0,1,0)); // Vertical reste vertical
+      renderer.vzVector.setColor(new THREE.Color(isDark ? 0x44ff44 : 0x059669));
       renderer.vzVector.position.copy(vxTip);
       renderer.vzVector.setLength(Math.abs(vel.vz)*state.velocityVectorScale, 0.2, 0.1);
       renderer.vzVector.visible = Math.abs(vel.vz) > 0.1;
@@ -447,6 +450,11 @@ function initDOM() {
     if(!s || !i) return;
     s.addEventListener("input", () => { i.value = s.value; cb(); });
     i.addEventListener("change", () => { s.value = i.value; cb(); });
+    
+    // Empêcher la capture du clavier après interaction
+    s.addEventListener("mouseup", () => s.blur());
+    s.addEventListener("touchend", () => s.blur());
+    i.addEventListener("blur", () => i.value = s.value); 
   };
 
   ["v0", "alpha", "h", "hArrivee", "g", "m", "outOfPlane", "radius", "dragCoeff", "speed", "vectorScale"].forEach(k => {

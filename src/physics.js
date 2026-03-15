@@ -1,41 +1,24 @@
-export const DT = 0.016;
+export const DT = 0.01;
 
-export const toRad = (deg) => (deg * Math.PI) / 180;
-export const toDeg = (rad) => (rad * 180) / Math.PI;
+export function toRad(deg) { return (deg * Math.PI) / 180; }
+export function toDeg(rad) { return (rad * 180) / Math.PI; }
 
-export function calculerVitesseMinimale(g, x_target, y_target, h_depart) {
-  const y_minus_h = y_target - h_depart;
-  const sous_racine = Math.sqrt(Math.pow(y_minus_h, 2) + Math.pow(x_target, 2));
-  const v0_carre = g * (y_minus_h + sous_racine);
-  if (v0_carre < 0) return null;
-  return Math.sqrt(v0_carre);
-}
-
-export function calculerTrajectoireAvecFrottement(
-  v0,
-  alphaRad,
-  h,
-  g,
-  m,
-  hArrivee,
-  radius,
-  dragCoeff,
-  airDensity,
-  dragModel,
-  betaRad = 0
-) {
-  let trajectoire = [{ x: 0, y: 0, z: h }];
+export function calculerTrajectoireAvecFrottement(v0, alphaRad, h, g, m, hArrivee, radius, dragCoeff, airDensity, dragModel, betaRad = 0) {
   let x = 0, y = 0, z = h;
-  
-  const v_horiz = v0 * Math.cos(alphaRad);
-  let vx = v_horiz * Math.cos(betaRad);
-  let vy = v_horiz * Math.sin(betaRad);
-  let vz = v0 * Math.sin(alphaRad);
-  let t = 0;
-  let zMax = h, xSommet = 0, tSommet = 0;
-  let isFalling = false;
-  const area = Math.PI * radius ** 2;
+  const vz0 = v0 * Math.sin(alphaRad);
+  const v_horiz0 = v0 * Math.cos(alphaRad);
+  let vx = v_horiz0 * Math.cos(betaRad);
+  let vy = v_horiz0 * Math.sin(betaRad);
+  let vz = vz0;
 
+  let t = 0;
+  let trajectoire = [{ x, y, z, vx, vy, vz, v: v0, v_horiz: v_horiz0 }];
+  let zMax = h;
+  let xSommet = 0;
+  let tSommet = 0;
+  let isFalling = false;
+
+  const area = Math.PI * radius ** 2;
   let dragConstant;
   if (dragModel === "quadratic") {
     dragConstant = 0.5 * airDensity * area * dragCoeff;
@@ -47,13 +30,13 @@ export function calculerTrajectoireAvecFrottement(
   let step = 0;
 
   while ((z >= hArrivee || vz > 0) && step < maxSteps) {
-    const v = Math.sqrt(vx ** 2 + vy ** 2 + vz ** 2);
-    if (v === 0) break;
+    const vCurrent = Math.sqrt(vx ** 2 + vy ** 2 + vz ** 2);
+    if (vCurrent < 1e-6) break;
 
-    let F_drag_mag = dragModel === "quadratic" ? dragConstant * v ** 2 : dragConstant * v;
-    const F_drag_x = -F_drag_mag * (vx / v);
-    const F_drag_y = -F_drag_mag * (vy / v);
-    const F_drag_z = -F_drag_mag * (vz / v);
+    let F_drag_mag = dragModel === "quadratic" ? dragConstant * vCurrent ** 2 : dragConstant * vCurrent;
+    const F_drag_x = -F_drag_mag * (vx / vCurrent);
+    const F_drag_y = -F_drag_mag * (vy / vCurrent);
+    const F_drag_z = -F_drag_mag * (vz / vCurrent);
     const F_gravity_z = -m * g;
 
     const ax = F_drag_x / m;
@@ -69,12 +52,14 @@ export function calculerTrajectoireAvecFrottement(
     t += DT;
     step++;
 
-    trajectoire.push({ x, y, z });
+    const vNew = Math.sqrt(vx ** 2 + vy ** 2 + vz ** 2);
+    const vhNew = Math.sqrt(vx ** 2 + vy ** 2);
+    trajectoire.push({ x, y, z, vx, vy, vz, v: vNew, v_horiz: vhNew });
 
     if (vz < 0 && !isFalling) {
       isFalling = true;
       zMax = z;
-      xSommet = x;
+      xSommet = Math.sqrt(x*x + y*y);
       tSommet = t;
     }
   }
@@ -83,7 +68,12 @@ export function calculerTrajectoireAvecFrottement(
   const eInitiale = m * g * h + 0.5 * m * v0 ** 2;
   const eImpact = 0.5 * m * vImpact ** 2;
 
-  return { yMax: zMax, porteeX: x, dureeVol: t, tSommet, xSommet, vImpact, eInitiale, eImpact, trajectoire };
+  // yMax : Variable utilisée par l'UI pour la hauteur max, mappée sur zMax
+  return { 
+    yMax: zMax, 
+    porteeX: Math.sqrt(x*x + y*y), 
+    dureeVol: t, tSommet, xSommet, vImpact, eInitiale, eImpact, trajectoire 
+  };
 }
 
 export function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, betaRad = 0) {
@@ -94,15 +84,17 @@ export function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, betaRa
     };
 
   const vz0 = v0 * Math.sin(alphaRad);
-  const v_horiz = v0 * Math.cos(alphaRad);
-  const vx0 = v_horiz * Math.cos(betaRad);
-  const vy0 = v_horiz * Math.sin(betaRad);
+  const v_horiz0 = v0 * Math.cos(alphaRad);
+  const vx0 = v_horiz0 * Math.cos(betaRad);
+  const vy0 = v_horiz0 * Math.sin(betaRad);
 
   const eInitiale = m * g * h + 0.5 * m * v0 ** 2;
   let tSommet = vz0 / g;
   let zVertex = -0.5 * g * tSommet ** 2 + vz0 * tSommet + h;
   let xVertex = vx0 * tSommet;
-  let zMax = zVertex, xSommet = xVertex, tSommetEff = tSommet;
+  let yVertex = vy0 * tSommet;
+  
+  let zMax = zVertex, xSommet = Math.sqrt(xVertex*xVertex + yVertex*yVertex), tSommetEff = tSommet;
 
   if (tSommet <= 0) {
     tSommetEff = 0;
@@ -134,14 +126,25 @@ export function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, betaRa
       const x = vx0 * t;
       const y = vy0 * t;
       const z = -0.5 * g * t ** 2 + vz0 * t + h;
-      trajectoire.push({ x, y, z });
+      const vt = Math.sqrt(vx0**2 + vy0**2 + (vz0 - g * t)**2);
+      const vh = Math.sqrt(vx0**2 + vy0**2);
+      trajectoire.push({ x, y, z, vx: vx0, vy: vy0, vz: vz0 - g * t, v: vt, v_horiz: vh });
     }
-    trajectoire.push({ x: porteeX, y: porteeY, z: hArrivee });
+    const finalVz = vz0 - g * dureeVol;
+    trajectoire.push({ 
+      x: porteeX, y: porteeY, z: hArrivee, 
+      vx: vx0, vy: vy0, vz: finalVz, 
+      v: vImpact, v_horiz: Math.sqrt(vx0**2 + vy0**2) 
+    });
   } else {
-    trajectoire.push({ x: 0, y: 0, z: h });
+    trajectoire.push({ x: 0, y: 0, z: h, vx: vx0, vy: vy0, vz: vz0, v: v0, v_horiz: v_horiz0 });
   }
 
-  return { yMax: zMax, porteeX, porteeY, dureeVol, tSommet: tSommetEff, xSommet, vImpact, eInitiale, eImpact, trajectoire };
+  return { 
+    yMax: zMax, 
+    porteeX: Math.sqrt(porteeX**2 + porteeY**2), 
+    porteeY, dureeVol, tSommet: tSommetEff, xSommet, vImpact, eInitiale, eImpact, trajectoire 
+  };
 }
 
 export function calculerEnveloppe(v0, h, g) {
@@ -168,8 +171,8 @@ export function genererEquationParabole(state, angleDeg) {
   const a = -g / (2 * v0 * v0 * cosAlpha * cosAlpha);
   const b = Math.tan(alphaRad);
   const c = h;
-  let equation = `<i>y(x)</i> = ${a.toFixed(3)} ∙ <i>x</i>²`;
-  equation += (b >= 0 ? " + " : " - ") + `${Math.abs(b).toFixed(3)} ∙ <i>x</i>`;
+  let equation = `<i>z(x')</i> = ${a.toFixed(3)} ∙ <i>x'</i>²`;
+  equation += (b >= 0 ? " + " : " - ") + `${Math.abs(b).toFixed(3)} ∙ <i>x'</i>`;
   equation += (c >= 0 ? " + " : " - ") + `${Math.abs(c).toFixed(2)}`;
   return equation;
 }

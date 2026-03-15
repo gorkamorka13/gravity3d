@@ -101,20 +101,49 @@ export class SimulationRenderer {
     this.axisY.position.z = axisLength / 2;
     this.scene.add(this.axisY);
 
-    // Repère local aligné sur la trajectoire
+    // Repère local aligné sur la trajectoire (Pointillés)
     this.localFrame = new THREE.Group();
     this.scene.add(this.localFrame);
     
-    this.localAxesHelper = new THREE.AxesHelper(40);
-    this.localAxesHelper.material.opacity = 0.3;
-    this.localAxesHelper.material.transparent = true;
-    this.localFrame.add(this.localAxesHelper);
+    // Axe X' Local (Rouge pointillé)
+    this.localX = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(45,0,0)]),
+      new THREE.LineDashedMaterial({ color: 0xff4444, dashSize: 2, gapSize: 1 })
+    );
+    this.localX.computeLineDistances();
+    this.localFrame.add(this.localX);
+
+    // Axe Z Local (Vert pointillé - Vertical)
+    this.localZ = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,45,0)]),
+      new THREE.LineDashedMaterial({ color: 0x44ff44, dashSize: 2, gapSize: 1 })
+    );
+    this.localZ.computeLineDistances();
+    this.localFrame.add(this.localZ);
+
+    // Axe Y' Local (Bleu pointillé - Latéral au plan)
+    this.localY = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,45)]),
+      new THREE.LineDashedMaterial({ color: 0x4444ff, dashSize: 2, gapSize: 1 })
+    );
+    this.localY.computeLineDistances();
+    this.localFrame.add(this.localY);
     
     // Labels pour le repère local
-    this.labelXPrime = this.makeLabelSprite("x'", "#ffaa00");
+    this.labelXPrime = this.makeLabelSprite("x'", "#ff4444");
     this.labelXPrime.scale.set(3, 1.5, 1);
-    this.labelXPrime.position.set(42, 0, 0);
+    this.labelXPrime.position.set(47, 0, 0);
     this.localFrame.add(this.labelXPrime);
+
+    this.labelYPrime = this.makeLabelSprite("y'", "#4444ff");
+    this.labelYPrime.scale.set(3, 1.5, 1);
+    this.labelYPrime.position.set(0, 0, 47);
+    this.localFrame.add(this.labelYPrime);
+
+    this.labelZPrime = this.makeLabelSprite("z", "#44ff44");
+    this.labelZPrime.scale.set(3, 1.5, 1);
+    this.labelZPrime.position.set(0, 47, 0);
+    this.localFrame.add(this.labelZPrime);
 
     // Étiquettes d'axes globaux (Z est la hauteur pour l'utilisateur)
     this.labelX = this.makeLabelSprite("X", "#ff4444");
@@ -167,9 +196,15 @@ export class SimulationRenderer {
 
   onWindowResize() {
     const rect = this.canvas.getBoundingClientRect();
-    this.camera.aspect = rect.width / rect.height;
+    const width = Math.floor(rect.width);
+    const height = Math.floor(rect.height);
+    
+    // Éviter les redimensionnements inutiles ou saccadés durant les transitions CSS
+    if (this.renderer.domElement.width === width && this.renderer.domElement.height === height) return;
+
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(rect.width, rect.height);
+    this.renderer.setSize(width, height, false);
   }
 
   updateLine(line, trajectory) {
@@ -233,6 +268,30 @@ export class SimulationRenderer {
     if (this.axisX) this.axisX.material.color.set(isDark ? 0xff4444 : 0xdc2626);
     if (this.axisZ) this.axisZ.material.color.set(isDark ? 0x44ff44 : 0x059669);
     if (this.axisY) this.axisY.material.color.set(isDark ? 0x4444ff : 0x2563eb);
+
+    // Mise à jour de la couleur des axes locaux pointillés
+    if (this.localX) this.localX.material.color.set(isDark ? 0xff4444 : 0xdc2626);
+    if (this.localY) this.localY.material.color.set(isDark ? 0x4444ff : 0x2563eb);
+    if (this.localZ) this.localZ.material.color.set(isDark ? 0x44ff44 : 0x059669);
+
+    // Mise à jour des labels locaux
+    const localLabels = [
+      { key: 'labelXPrime', text: "x'", pos: [47, 0, 0], color: isDark ? "#ff4444" : "#dc2626" },
+      { key: 'labelYPrime', text: "y'", pos: [0, 0, 47], color: isDark ? "#4444ff" : "#2563eb" },
+      { key: 'labelZPrime', text: "z", pos: [0, 47, 0], color: isDark ? "#44ff44" : "#059669" }
+    ];
+
+    localLabels.forEach(l => {
+      if (this[l.key]) {
+        this.localFrame.remove(this[l.key]);
+        if (this[l.key].material.map) this[l.key].material.map.dispose();
+        this[l.key].material.dispose();
+      }
+      this[l.key] = this.makeLabelSprite(l.text, l.color);
+      this[l.key].position.set(...l.pos);
+      this[l.key].scale.set(3, 1.5, 1);
+      this.localFrame.add(this[l.key]);
+    });
   }
 
   makeLabelSprite(text, color = "#ffffff") {
