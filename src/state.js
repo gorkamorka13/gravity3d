@@ -6,6 +6,8 @@ export const state = {
   outOfPlaneAngleDeg: 0,
   vz0: 0,
   h: 0,
+  x0: 0,
+  y0: 0,
   hArrivee: 0,
   g: 0,
   m: 1.0,

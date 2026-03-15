@@ -3,8 +3,8 @@ export const DT = 0.01;
 export function toRad(deg) { return (deg * Math.PI) / 180; }
 export function toDeg(rad) { return (rad * 180) / Math.PI; }
 
-export function calculerTrajectoireAvecFrottement(v0, alphaRad, h, g, m, hArrivee, radius, dragCoeff, airDensity, dragModel, betaRad = 0) {
-  let x = 0, y = 0, z = h;
+export function calculerTrajectoireAvecFrottement(v0, alphaRad, h, g, m, hArrivee, radius, dragCoeff, airDensity, dragModel, betaRad = 0, x0 = 0, y0 = 0) {
+  let x = x0, y = y0, z = h;
   const vz0 = v0 * Math.sin(alphaRad);
   const v_horiz0 = v0 * Math.cos(alphaRad);
   let vx = v_horiz0 * Math.cos(betaRad);
@@ -71,12 +71,12 @@ export function calculerTrajectoireAvecFrottement(v0, alphaRad, h, g, m, hArrive
   // yMax : Variable utilisée par l'UI pour la hauteur max, mappée sur zMax
   return { 
     yMax: zMax, 
-    porteeX: Math.sqrt(x*x + y*y), 
-    dureeVol: t, tSommet, xSommet, vImpact, eInitiale, eImpact, trajectoire 
+    porteeX: Math.sqrt((x - x0) ** 2 + (y - y0) ** 2), 
+    dureeVol: t, tSommet, xSommet: xSommet - Math.sqrt(x0*x0 + y0*y0), vImpact, eInitiale, eImpact, trajectoire 
   };
 }
 
-export function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, betaRad = 0) {
+export function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, betaRad = 0, x0 = 0, y0 = 0) {
   if (g <= 0 || v0 <= 0)
     return {
       yMax: h, porteeX: 0, dureeVol: 0, tSommet: 0, xSommet: 0,
@@ -94,7 +94,7 @@ export function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, betaRa
   let xVertex = vx0 * tSommet;
   let yVertex = vy0 * tSommet;
   
-  let zMax = zVertex, xSommet = Math.sqrt(xVertex*xVertex + yVertex*yVertex), tSommetEff = tSommet;
+  let zMax = zVertex, xSommet = Math.sqrt((xVertex-x0)*(xVertex-x0) + (yVertex-y0)*(yVertex-y0)), tSommetEff = tSommet;
 
   if (tSommet <= 0) {
     tSommetEff = 0;
@@ -123,8 +123,8 @@ export function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, betaRa
   let trajectoire = [];
   if (dureeVol > 0) {
     for (let t = 0; t <= dureeVol; t += DT) {
-      const x = vx0 * t;
-      const y = vy0 * t;
+      const x = vx0 * t + x0;
+      const y = vy0 * t + y0;
       const z = -0.5 * g * t ** 2 + vz0 * t + h;
       const vt = Math.sqrt(vx0**2 + vy0**2 + (vz0 - g * t)**2);
       const vh = Math.sqrt(vx0**2 + vy0**2);
@@ -132,12 +132,12 @@ export function calculerCaracteristiques(v0, alphaRad, h, g, m, hArrivee, betaRa
     }
     const finalVz = vz0 - g * dureeVol;
     trajectoire.push({ 
-      x: porteeX, y: porteeY, z: hArrivee, 
+      x: vx0 * dureeVol + x0, y: vy0 * dureeVol + y0, z: hArrivee, 
       vx: vx0, vy: vy0, vz: finalVz, 
       v: vImpact, v_horiz: Math.sqrt(vx0**2 + vy0**2) 
     });
   } else {
-    trajectoire.push({ x: 0, y: 0, z: h, vx: vx0, vy: vy0, vz: vz0, v: v0, v_horiz: v_horiz0 });
+    trajectoire.push({ x: x0, y: y0, z: h, vx: vx0, vy: vy0, vz: vz0, v: v0, v_horiz: v_horiz0 });
   }
 
   return { 

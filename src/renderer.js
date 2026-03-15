@@ -381,15 +381,14 @@ export class SimulationRenderer {
     const alphaRad = (angleDeg * Math.PI) / 180;
     const betaRad = ((state.outOfPlaneAngleDeg || 0) * Math.PI) / 180;
     const visualScale = 0.3;
-    const startPoint = new THREE.Vector3(0, state.h, 0);
+    const startPoint = new THREE.Vector3(state.x0 || 0, state.h, state.y0 || 0);
 
-    const v_xy = state.v0 * Math.cos(betaRad);
-    const v_z = state.v0 * Math.sin(betaRad);
-
+    // Alpha = élévation (plan vertical), Beta = azimut (plan horizontal)
+    const v_horiz = state.v0 * Math.cos(alphaRad);
     const direction = new THREE.Vector3(
-      v_xy * Math.cos(alphaRad),
-      v_xy * Math.sin(alphaRad),
-      v_z
+      v_horiz * Math.cos(betaRad),
+      state.v0 * Math.sin(alphaRad),
+      v_horiz * Math.sin(betaRad)
     ).normalize();
 
     const length = state.v0 * visualScale;

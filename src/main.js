@@ -147,21 +147,32 @@ function calculateTargetSolutions() {
   const v0 = parseFloat(sliders.v0Target.value);
   const g = parseFloat(sliders.g.value);
   const h = parseFloat(sliders.h.value);
+  const x0 = parseFloat(sliders.x0.value || 0);
+  const y0 = parseFloat(sliders.y0.value || 0);
+  
   state.v0 = v0;
   state.h = h;
-  state.target.x = parseFloat(inputs.targetX.value);
-  state.target.y = parseFloat(inputs.targetY.value);
-  state.target.z = parseFloat(inputs.targetZ.value);
+  state.x0 = x0;
+  state.y0 = y0;
   
-  state.outOfPlaneAngleDeg = sliders.outOfPlane ? parseFloat(sliders.outOfPlane.value || 0) : 0;
-  state.vz0 = (state.v0 || 0) * Math.sin(toRad(state.outOfPlaneAngleDeg));
-  
-  const { target } = state;
-  if (target.x <= 0) return;
+  const tx = parseFloat(inputs.targetX.value); 
+  const ty = parseFloat(inputs.targetY.value); 
+  const tz = parseFloat(inputs.targetZ.value); 
+  state.target = { x: tx, y: ty, z: tz };
 
-  const A = (g * target.x ** 2) / (2 * v0 ** 2);
-  const B = -target.x;
-  const C = target.y - h + A;
+  const dx = tx - x0;
+  const dy = ty - y0;
+  const distHoriz = Math.sqrt(dx*dx + dy*dy);
+  const deltaZ = tz - h;
+
+  if (distHoriz <= 0) return;
+
+  state.outOfPlaneAngleDeg = toDeg(Math.atan2(dy, dx));
+  const betaRad = toRad(state.outOfPlaneAngleDeg);
+
+  const A = (g * distHoriz ** 2) / (2 * v0 ** 2);
+  const B = -distHoriz;
+  const C = deltaZ + A;
   const delta = B ** 2 - 4 * A * C;
 
   if (delta < 0) {
@@ -177,36 +188,16 @@ function calculateTargetSolutions() {
     });
     state.solutions.sort((a, b) => b - a);
 
-    if (target.z !== 0 && state.solutions.length > 0) {
-      const alphaRad = toRad(state.solutions[0]);
-      const cosAlpha = Math.cos(alphaRad);
-      if (cosAlpha > 1e-9) {
-        const flightTime = target.x / (v0 * cosAlpha);
-        state.vz0 = target.z / flightTime;
-        state.outOfPlaneAngleDeg = toDeg(Math.asin(Math.max(-1, Math.min(1, state.vz0 / v0))));
-      }
-    }
-
     if (state.solutions.length > 0) {
-      const c1 = calculerCaracteristiques(v0, toRad(state.solutions[0]), h, g, state.m, target.y, state.vz0);
-      let traj1 = c1.trajectoire;
-      const targetIndex1 = traj1.findIndex((p) => p.x >= target.x);
-      if (targetIndex1 !== -1) {
-        traj1 = traj1.slice(0, targetIndex1 + 1);
-        traj1[traj1.length - 1] = { x: target.x, y: target.y, z: state.vz0 * (targetIndex1 * DT) };
-      }
-      state.trajectoire1 = traj1.map((p, idx) => ({ ...p, x: p.x - (traj1[0].x||0), z: (state.target.z||0)*(traj1.length>1?idx/(traj1.length-1):0) }));
+      const alpha1 = toRad(state.solutions[0]);
+      const c1 = calculerCaracteristiques(v0, alpha1, h, g, state.m, tz, betaRad, x0, y0);
+      state.trajectoire1 = c1.trajectoire;
       
       if (state.solutions.length === 2) {
         state.isDualTrajectoryMode = true;
-        const c2 = calculerCaracteristiques(v0, toRad(state.solutions[1]), h, g, state.m, target.y, state.vz0);
-        let traj2 = c2.trajectoire;
-        const targetIndex2 = traj2.findIndex((p) => p.x >= target.x);
-        if (targetIndex2 !== -1) {
-          traj2 = traj2.slice(0, targetIndex2 + 1);
-          traj2[traj2.length - 1] = { x: target.x, y: target.y, z: state.target.z || 0 };
-        }
-        state.trajectoire2 = traj2.map((p, idx) => ({ ...p, x: p.x - (traj2[0].x||0), z: (state.target.z||0)*(traj2.length>1?idx/(traj2.length-1):0) }));
+        const alpha2 = toRad(state.solutions[1]);
+        const c2 = calculerCaracteristiques(v0, alpha2, h, g, state.m, tz, betaRad, x0, y0);
+        state.trajectoire2 = c2.trajectoire;
       }
     }
   }
@@ -247,11 +238,16 @@ function updateSimulation() {
     
     state.isDualTrajectoryMode = false;
     let chars;
+    const x0 = parseFloat(sliders.x0.value || 0);
+    const y0 = parseFloat(sliders.y0.value || 0);
+    state.x0 = x0;
+    state.y0 = y0;
+
     if (state.isResistanceActive) {
-      chars = calculerTrajectoireAvecFrottement(state.v0, alphaRad, state.h, state.g, state.m, state.hArrivee, state.radius, state.dragCoeff, state.airDensity, state.dragModel, betaRad);
-      state.idealTrajectoire = calculerCaracteristiques(state.v0, alphaRad, state.h, state.g, state.m, state.hArrivee, betaRad).trajectoire;
+      chars = calculerTrajectoireAvecFrottement(state.v0, alphaRad, state.h, state.g, state.m, state.hArrivee, state.radius, state.dragCoeff, state.airDensity, state.dragModel, betaRad, x0, y0);
+      state.idealTrajectoire = calculerCaracteristiques(state.v0, alphaRad, state.h, state.g, state.m, state.hArrivee, betaRad, x0, y0).trajectoire;
     } else {
-      chars = calculerCaracteristiques(state.v0, alphaRad, state.h, state.g, state.m, state.hArrivee, betaRad);
+      chars = calculerCaracteristiques(state.v0, alphaRad, state.h, state.g, state.m, state.hArrivee, betaRad, x0, y0);
       state.idealTrajectoire = [];
     }
     Object.assign(state, chars);
@@ -260,7 +256,7 @@ function updateSimulation() {
     // Réinitialiser la position au départ si on ne simule pas activement
     if (!state.simulationStarted || state.isPaused) {
       state.currentFrameIndex = 0;
-      renderer.projectileMesh.position.set(0, state.h, 0); // PhysX, PhysZ(H), PhysY(L)
+      renderer.projectileMesh.position.set(state.x0, state.h, state.y0); 
     }
 
     // Orienter le repère local
@@ -270,7 +266,7 @@ function updateSimulation() {
   }
 
   if (state.mode === "target") {
-     renderer.targetMesh.position.set(state.target.x, state.target.y + 1, state.target.z);
+     renderer.targetMesh.position.set(state.target.x, state.target.z, state.target.y);
      renderer.targetMesh.visible = true;
   } else {
      renderer.targetMesh.visible = false;
@@ -305,10 +301,12 @@ function updateSimulation() {
 function updateResults(dynamicHTML = "") {
   let html = "";
   if (state.mode === "simulation") {
-    html = `<b>Caractéristiques :</b><ul><li>Hauteur max: <b>${state.yMax.toFixed(2)}m</b></li><li>Portée: <b>${state.porteeX.toFixed(2)}m</b></li><li>Vol: <b>${state.dureeVol.toFixed(2)}s</b></li></ul>`;
+    html = `<b>Lanceur ($x_0, y_0, z_0$) :</b> (${state.x0}m, ${state.y0}m, ${state.h}m)<br>`;
+    html += `<b>Caractéristiques :</b><ul><li>Hauteur max: <b>${state.yMax.toFixed(2)}m</b></li><li>Portée: <b>${state.porteeX.toFixed(2)}m</b></li><li>Vol: <b>${state.dureeVol.toFixed(2)}s</b></li></ul>`;
     if (dynamicHTML) html += `<div style="margin-top:10px">${dynamicHTML}</div>`;
   } else if (state.mode === "target") {
-    html = `<b>Cible:</b> (${state.target.x}m, ${state.target.y}m, ${state.target.z}m)<br>`;
+    html = `<b>Lanceur :</b> (${state.x0}m, ${state.y0}m, ${state.h}m)<br>`;
+    html += `<b>Cible:</b> (X=${state.target.x}m, Y=${state.target.y}m, Z=${state.target.z}m)<br>`;
     if (state.solutions.length > 0) {
       html += `Solutions trouvées: ${state.solutions.map(s=>`<b>${s.toFixed(1)}°</b>`).join(' et ')}`;
     } else {
@@ -416,6 +414,8 @@ function initDOM() {
     outOfPlane: document.getElementById("outOfPlaneSlider"),
     radius: document.getElementById("radiusSlider"),
     dragCoeff: document.getElementById("dragCoeffSlider"),
+    x0: document.getElementById("x0Slider"),
+    y0: document.getElementById("y0Slider"),
   };
 
   inputs = {
@@ -432,6 +432,8 @@ function initDOM() {
     outOfPlane: document.getElementById("outOfPlaneInput"),
     radius: document.getElementById("radiusInput"),
     dragCoeff: document.getElementById("dragCoeffInput"),
+    x0: document.getElementById("x0Input"),
+    y0: document.getElementById("y0Input"),
   };
 
   elements = {
@@ -457,7 +459,7 @@ function initDOM() {
     i.addEventListener("blur", () => i.value = s.value); 
   };
 
-  ["v0", "alpha", "h", "hArrivee", "g", "m", "outOfPlane", "radius", "dragCoeff", "speed", "vectorScale"].forEach(k => {
+  ["v0", "alpha", "h", "hArrivee", "g", "m", "outOfPlane", "radius", "dragCoeff", "speed", "vectorScale", "x0", "y0"].forEach(k => {
     const s = sliders[k];
     const i = inputs[k];
     if (s && i) i.value = s.value; // Synchronisation initiale
